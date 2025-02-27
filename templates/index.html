@@ -1,0 +1,113 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ category or "所有分类" }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <h1 class="page-title">{{ category or "所有分类" }}</h1>
+    
+    <div class="category-select">
+        <select class="category-dropdown" onchange="location = this.value;">
+            <option value="/all">所有分类</option>
+            {% for cat in all_categories %}
+            <option value="/{{ cat | urlencode }}" {% if cat == category %}selected{% endif %}>
+                {{ cat }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <div class="image-container">
+        {% if images %}
+            {% for image in images %}
+            <div class="image-wrapper">
+                <img class="image-item" 
+                    src="{{ url_for('serve_image', category=image.category, filename=image.filename) }}" 
+                    alt="图片"
+                    onclick="showImageInfo(
+                        '{{ image.path | replace("\\", "\\\\") }}',
+                        {{ image.face_scores | tojson }},
+                        {{ image.landmark_scores | tojson }}
+                    )"
+                >
+                <div class="heart-icon {% if image.path in liked_images %}liked{% else %}unliked{% endif %}" 
+                    onclick="toggleLike(event, '{{ image.path | replace("\\", "\\\\") }}')"
+                    data-liked="{{ 'true' if image.like else 'false' }}">
+                    ❤
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="empty-message">此分类下暂无图片。</p>
+        {% endif %}
+    </div>
+    
+    <div class="pagination">
+        {% if current_page > 1 %}
+            {% if category %}
+                <a class="page-link" href="/{{ category | urlencode }}/1">首页</a>
+                <a class="page-link" href="/{{ category | urlencode }}/{{ current_page - 1 }}">上一页</a>
+            {% else %}
+                <a class="page-link" href="/all?page=1">首页</a>
+                <a class="page-link" href="/all?page={{ current_page - 1 }}">上一页</a>
+            {% endif %}
+        {% endif %}
+
+        {% for p in range(1, total_pages + 1) %}
+            {% if p >= current_page - 2 and p <= current_page + 2 %}
+                {% if category %}
+                    <a class="page-link {% if p == current_page %}active{% endif %}" 
+                       href="/{{ category | urlencode }}/{{ p }}">
+                        {{ p }}
+                    </a>
+                {% else %}
+                    <a class="page-link {% if p == current_page %}active{% endif %}" 
+                       href="/all?page={{ p }}">
+                        {{ p }}
+                    </a>
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+
+        {% if current_page < total_pages %}
+            {% if category %}
+                <a class="page-link" href="/{{ category | urlencode }}/{{ current_page + 1 }}">下一页</a>
+                <a class="page-link" href="/{{ category | urlencode }}/{{ total_pages }}">尾页</a>
+            {% else %}
+                <a class="page-link" href="/all?page={{ current_page + 1 }}">下一页</a>
+                <a class="page-link" href="/all?page={{ total_pages }}">尾页</a>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <a href="/" class="view-all">查看分类目录</a>
+
+    <!-- 模态框 -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h3 class="modal-title">图片详细信息</h3>
+            </div>
+            <div class="info-item">
+                <span class="info-label">完整路径：</span>
+                <span class="info-value" id="infoPath"></span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">人脸质量均分：</span>
+                <span class="info-value" id="infoFaceScore"></span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">特征点精度均分：</span>
+                <span class="info-value" id="infoLandmarkScore"></span>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

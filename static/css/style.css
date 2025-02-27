@@ -1,0 +1,262 @@
+/* static/css/style.css */
+/* 定义变量 */
+:root {
+    --primary-color: #007bff;
+    --secondary-color: #ddd;
+    --text-color: #333;
+    --subtext-color: #666;
+    --bg-color: #f4f4f9;
+}
+
+/* 基础样式 */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    margin: 0;
+    padding: 0;
+}
+
+/* 标题 */
+.page-title {
+    text-align: center;
+    color: var(--text-color);
+    margin: 20px 0;
+    font-size: 1.8rem;
+}
+
+/* 分类选择 */
+.category-select {
+    text-align: center;
+    margin: 15px 0;
+}
+
+.category-dropdown {
+    padding: 10px 45px 10px 20px;
+    border-radius: 25px;
+    border: 1px solid var(--secondary-color);
+    background-color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: auto;
+    min-width: 200px;
+    max-width: 90vw;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 16px;
+}
+
+.category-dropdown:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 图片容器 */
+.image-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px;
+}
+
+.image-item {
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+    max-width: 100%;
+    height: 300px;
+    object-fit: cover;
+    cursor: pointer;
+}
+
+.image-item:hover {
+    transform: scale(1.05);
+}
+
+/* 分页 */
+.pagination {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.page-link {
+    color: var(--text-color);
+    padding: 8px 16px;
+    text-decoration: none;
+    border: 1px solid var(--secondary-color);
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+
+.page-link:hover {
+    background-color: var(--secondary-color);
+}
+
+.page-link.active {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+/* 模态框 */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    max-width: 600px;
+    width: 90%;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+    border-bottom: 1px solid var(--secondary-color);
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+}
+
+.close {
+    float: right;
+    cursor: pointer;
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--subtext-color);
+}
+
+.close:hover {
+    color: var(--text-color);
+}
+
+/* 信息项 */
+.info-item {
+    margin: 10px 0;
+    font-size: 16px;
+}
+
+.info-label {
+    color: var(--subtext-color);
+    min-width: 160px;
+    display: inline-block;
+}
+
+.info-value {
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+/* 按钮 */
+.view-all {
+    display: block;
+    text-align: center;
+    margin: 30px auto;
+    padding: 12px 25px;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 25px;
+    text-decoration: none;
+    width: fit-content;
+    transition: background-color 0.3s ease;
+}
+
+.view-all:hover {
+    background-color: #0056b3;
+}
+
+/* 新增爱心样式 */
+.image-wrapper {
+    position: relative;
+    display: inline-block;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.image-wrapper.loaded {
+    opacity: 1;
+}
+
+.heart-icon {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 24px;
+    cursor: pointer;
+    text-shadow: 0 0 5px rgba(0,0,0,0.3); /* 调整阴影增强可视性 */
+    transition: all 0.2s;
+    background-color: rgba(0, 0, 0, 0.3); /* 新增半透明背景 */
+    border-radius: 50%;
+    padding: 2px 5px;
+    visibility: hidden;
+}
+
+.heart-icon.liked {
+    color: rgba(255, 0, 0, 0.8); /* 红色半透明 */
+    background-color: rgba(0, 0, 0, 0.3); /* 保持背景透明度 */
+}
+
+.heart-icon.unliked {
+    color: rgba(255, 255, 255, 0.8); /* 白色半透明 */
+    background-color: rgba(0, 0, 0, 0.3); /* 统一背景 */
+}
+
+.image-wrapper.loaded .heart-icon {
+    visibility: visible; /* 图片加载后显示 */
+}
+
+.heart-icon:hover {
+    transform: scale(1.1);
+    background-color: rgba(0, 0, 0, 0.5); /* 悬停时背景加深 */
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .page-title {
+        font-size: 1.4rem;
+        padding: 0 10px;
+    }
+
+    .category-dropdown {
+        width: 100%;
+        max-width: 100%;
+        padding: 12px 45px 12px 15px;
+    }
+
+    .image-container {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .image-item {
+        width: 100%;
+        max-width: 300px;
+        height: auto;
+        margin-bottom: 10px;
+    }
+
+    .pagination {
+        gap: 5px;
+        padding: 0 10px;
+    }
+}
+
+.empty-message {
+    text-align: center;
+    color: var(--subtext-color);
+    margin: 20px 0;
+}

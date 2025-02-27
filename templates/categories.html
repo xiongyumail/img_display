@@ -1,0 +1,53 @@
+<!-- templates/categories.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分类目录</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/categories.css') }}">
+</head>
+<body>
+    <h1 class="page-header">分类目录</h1>
+    
+    <section class="category-grid" aria-label="分类列表">
+        {% for cat in categories %}
+        <a href="{{ cat.url }}" class="category-card">
+            <img src="{{ cat.thumb_url }}" 
+                 alt="{{ cat.name }}" 
+                 class="category-thumb"
+                 loading="lazy"
+                 width="250"
+                 height="250">
+            <div class="category-info">
+                <p class="category-name">{{ cat.name }}</p>
+            </div>
+        </a>
+        {% endfor %}
+    </section>
+
+    <nav class="pagination-nav" aria-label="分页导航">
+        {% if current_page > 1 %}
+            <a href="/?page=1" class="page-link" aria-label="首页">首页</a>
+            <a href="/?page={{ current_page - 1 }}" class="page-link" aria-label="上一页">上一页</a>
+        {% endif %}
+    
+        {% for p in range(1, total_pages + 1) %}
+            {% if p >= current_page - 2 and p <= current_page + 2 %}
+                <a href="/?page={{ p }}" 
+                   class="page-link {% if p == current_page %}current-page{% endif %}"
+                   {% if p == current_page %}aria-current="page"{% endif %}>
+                    {{ p }}
+                </a>
+            {% endif %}
+        {% endfor %}
+    
+        {% if current_page < total_pages %}
+            <a href="/?page={{ current_page + 1 }}" class="page-link" aria-label="下一页">下一页</a>
+            <a href="/?page={{ total_pages }}" class="page-link" aria-label="尾页">尾页</a>
+        {% endif %}
+    </nav>
+
+    <a href="/all" class="view-all-btn">查看所有图片</a>
+</body>
+</html>
