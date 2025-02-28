@@ -2,6 +2,7 @@
 import json
 import os
 import math
+import datetime  # 新增datetime导入
 from functools import lru_cache
 from flask import Flask, render_template, send_from_directory, abort, request, url_for, jsonify, Response
 from urllib.parse import quote, unquote
@@ -83,28 +84,31 @@ def load_image_data() -> Tuple[Dict[str, List[Dict]], Dict[str, str]]:
     category_map: Dict[str, List[Dict]] = {}
     file_map: Dict[str, str] = {}
     
-    for raw_path, meta in cached_raw_data.items():
-        if not meta.get('face_scores'):
-            continue
+    # 遍历嵌套的目录结构
+    for dir_path, files_dict in cached_raw_data.get("img", {}).items():
+        for filename, meta in files_dict.items():
+            if not meta.get('face_scores'):
+                continue
             
-        normalized = os.path.normpath(raw_path)
-        dir_path, filename = os.path.split(normalized)
-        category = os.path.basename(dir_path)
-        
-        if not category:
-            continue
+            # 构建完整文件路径
+            full_path = os.path.join(dir_path, filename)
+            normalized = os.path.normpath(full_path)
+            category = os.path.basename(os.path.dirname(normalized))
             
-        img_info = {
-            'filename': filename,
-            'category': category,
-            'path': normalized,
-            'face_scores': meta.get('face_scores', []),
-            'landmark_scores': meta.get('face_landmark_scores_68', []),
-            'like': meta.get('like', False)
-        }
-        
-        category_map.setdefault(category, []).append(img_info)
-        file_map[f"{category}/{filename}"] = normalized
+            if not category:
+                continue
+                
+            img_info = {
+                'filename': filename,
+                'category': category,
+                'path': normalized,
+                'face_scores': meta.get('face_scores', []),
+                'landmark_scores': meta.get('face_landmark_scores_68', []),
+                'like': meta.get('like', False)
+            }
+            
+            category_map.setdefault(category, []).append(img_info)
+            file_map[f"{category}/{filename}"] = normalized
     
     return category_map, file_map
 
@@ -200,13 +204,20 @@ def like_image() -> Response:
                 with open(app.config['JSON_PATH'], 'r', encoding='utf-8') as f:
                     cached_raw_data = json.load(f)
             
-            if path not in cached_raw_data:
-                return jsonify({'success': False, 'message': 'Image not found'}), 404
+            # 解析路径为目录和文件名
+            dir_path = os.path.dirname(path)
+            filename = os.path.basename(path)
             
-            # 修改状态
-            cached_raw_data[path]['like'] = (action == 'like')
+            if dir_path not in cached_raw_data.get("img", {}):
+                return jsonify({'success': False, 'message': 'Directory not found'}), 404
+            if filename not in cached_raw_data["img"][dir_path]:
+                return jsonify({'success': False, 'message': 'File not found'}), 404
             
-            # 清空队列并提交最新数据
+            # 更新点赞状态和时间戳
+            cached_raw_data["img"][dir_path][filename]['like'] = (action == 'like')
+            cached_raw_data["date_updated"] = datetime.datetime.now().astimezone().isoformat()
+            
+            # 提交更新
             while not save_queue.empty():
                 try:
                     save_queue.get_nowait()
