@@ -11,6 +11,8 @@ import threading
 from typing import Tuple, Dict, List, Any
 import requests
 from queue import Queue, Empty
+from collections import defaultdict
+from datetime import datetime
 
 cached_raw_data = None
 data_lock = threading.Lock()
@@ -79,33 +81,39 @@ def load_image_data() -> Tuple[Dict[str, List[Dict]], Dict[str, str]]:
                 app.logger.error(f"Load initial data failed: {str(e)}")
                 return {}, {}
     
-    # 原有数据处理逻辑
-    category_map: Dict[str, List[Dict]] = {}
+    category_map: Dict[str, List[Dict]] = defaultdict(list)
     file_map: Dict[str, str] = {}
-    
-    for raw_path, meta in cached_raw_data.items():
-        if not meta.get('face_scores'):
-            continue
-            
-        normalized = os.path.normpath(raw_path)
-        dir_path, filename = os.path.split(normalized)
-        category = os.path.basename(dir_path)
-        
-        if not category:
-            continue
-            
-        img_info = {
-            'filename': filename,
-            'category': category,
-            'path': normalized,
-            'face_scores': meta.get('face_scores', []),
-            'landmark_scores': meta.get('face_landmark_scores_68', []),
-            'like': meta.get('like', False)
-        }
-        
-        category_map.setdefault(category, []).append(img_info)
-        file_map[f"{category}/{filename}"] = normalized
-    
+
+    img_data = cached_raw_data.get('img', {})
+
+    def walk_tree(node, current_rel_path, base_abs):
+        for key, value in node.items():
+            if isinstance(value, dict):
+                if 'face_scores' in value:
+                    # 过滤条件：仅保留face_scores不为空的条目
+                    if not value.get('face_scores'):
+                        continue  # 跳过空数据
+                        
+                    abs_path = os.path.normpath(os.path.join(base_abs, current_rel_path, key))
+                    dir_name = os.path.basename(os.path.dirname(abs_path))
+                    img_info = {
+                        'filename': key,
+                        'category': dir_name,
+                        'path': abs_path,
+                        'face_scores': value.get('face_scores', []),
+                        'landmark_scores': value.get('face_landmark_scores_68', []),
+                        'like': value.get('like', False)
+                    }
+                    category_map[dir_name].append(img_info)
+                    file_map[f"{dir_name}/{key}"] = abs_path
+                else:
+                    new_rel = os.path.join(current_rel_path, key)
+                    walk_tree(value, new_rel, base_abs)
+
+    for base in img_data:
+        base_abs = os.path.abspath(os.path.normpath(base))
+        walk_tree(img_data[base], "", base_abs)
+
     return category_map, file_map
 
 def get_category_thumbnail(category: str) -> Dict:
@@ -188,38 +196,45 @@ def like_image() -> Response:
     global cached_raw_data
     try:
         data = request.get_json()
-        path = data.get('path')
+        req_path = os.path.normpath(data.get('path'))
         action = data.get('action', 'like')
         
-        if not path:
+        if not req_path:
             return jsonify({'success': False, 'message': 'Missing path'}), 400
         
         with data_lock:
-            # 延迟加载数据（如果未初始化）
             if cached_raw_data is None:
                 with open(app.config['JSON_PATH'], 'r', encoding='utf-8') as f:
                     cached_raw_data = json.load(f)
             
-            if path not in cached_raw_data:
+            img_data = cached_raw_data.setdefault('img', {})
+            found = False
+
+            for base in list(img_data.keys()):
+                base_abs = os.path.abspath(os.path.normpath(base))
+                if os.path.commonpath([base_abs, req_path]) != base_abs:
+                    continue
+                
+                rel_path = os.path.relpath(req_path, base_abs).replace('\\', '/')
+                parts = rel_path.split('/')
+                current = img_data[base]
+                for part in parts[:-1]:
+                    current = current.setdefault(part, {})
+                file_node = current.get(parts[-1])
+                if file_node:
+                    file_node['like'] = (action == 'like')
+                    found = True
+                    cached_raw_data['date_updated'] = datetime.now().astimezone().isoformat()
+                    break
+
+            if not found:
                 return jsonify({'success': False, 'message': 'Image not found'}), 404
             
-            # 修改状态
-            cached_raw_data[path]['like'] = (action == 'like')
-            
-            # 清空队列并提交最新数据
-            while not save_queue.empty():
-                try:
-                    save_queue.get_nowait()
-                    save_queue.task_done()
-                except Empty:
-                    break
             save_queue.put(cached_raw_data.copy())
-            
-            # 清除处理后的数据缓存
             load_image_data.cache_clear()
+            
+            return jsonify({'success': True, 'action': action})
         
-        return jsonify({'success': True, 'action': action})
-    
     except Exception as e:
         app.logger.error(f"Like error: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
