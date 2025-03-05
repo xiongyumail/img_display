@@ -93,9 +93,13 @@ def load_image_data() -> Tuple[Dict[str, List[Dict]], Dict[str, str]]:
                     # 过滤条件：仅保留face_scores不为空的条目
                     if not value.get('face_scores'):
                         continue  # 跳过空数据
-                        
+                            
                     abs_path = os.path.normpath(os.path.join(base_abs, current_rel_path, key))
-                    dir_name = os.path.basename(os.path.dirname(abs_path))
+                    parent_relative_dir = current_rel_path.replace('\\', '/')
+                    if parent_relative_dir == "":
+                        dir_name = os.path.basename(base_abs)
+                    else:
+                        dir_name = parent_relative_dir
                     img_info = {
                         'filename': key,
                         'category': dir_name,
@@ -180,8 +184,8 @@ def show_all_images() -> str:
     page = request.args.get('page', 1, type=int)
     return render_category_view(page)
 
-@app.route('/<path:category>/<int:page>')
-@app.route('/<path:category>', defaults={'page': 1})
+@app.route('/category/<path:category>/page/<int:page>')
+@app.route('/category/<path:category>', defaults={'page': 1})
 def category_view(category: str, page: int) -> str:
     """分类详情视图"""
     try:
