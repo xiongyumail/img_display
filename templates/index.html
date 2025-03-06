@@ -4,15 +4,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ category or "所有分类" }}</title>
+    <title>{{ category if category == '_favorites' else (category or "所有分类") }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <h1 class="page-title">{{ category or "所有分类" }}</h1>
+    <h1 class="page-title">
+        {% if category == '_favorites' %}
+            已收藏
+        {% else %}
+            {{ category or "所有分类" }}
+        {% endif %}
+    </h1>
     
     <div class="category-select">
         <select class="category-dropdown" onchange="location = this.value;">
             <option value="{{ url_for('show_all_images', page=1) }}">所有分类</option>
+            <option value="{{ url_for('category_view', category='_favorites', page=1) }}"
+                    {% if category == '_favorites' %}selected{% endif %}>
+                已收藏
+            </option>
             {% for cat in all_categories %}
             <option value="{{ url_for('category_view', category=cat, page=1) }}" 
                     {% if cat == category %}selected{% endif %}>
