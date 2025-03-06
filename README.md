@@ -6,8 +6,9 @@
 ## 功能特性
 1. **图像信息展示**：从 JSON 文件中加载图像元数据，并在 Web 界面上分页展示。
 2. **分类视图**：支持按分类浏览图像，每个分类有缩略图显示。
-3. **点赞功能**：用户可以对图像进行点赞或取消点赞操作，点赞状态会异步保存到 JSON 文件中。
-4. **优雅关闭**：可以通过命令行输入 `Q` 或访问 `/shutdown` 接口来关闭服务器，确保数据保存完整。
+3. **收藏功能**：用户可以将喜欢的图像添加到收藏夹，并单独查看收藏的图片。
+4. **点赞功能**：用户可以对图像进行点赞或取消点赞操作，点赞状态会异步保存到 JSON 文件中。
+5. **优雅关闭**：可以通过命令行输入 `Q` 或访问 `/shutdown` 接口来关闭服务器，确保数据保存完整。
 
 ## 安装与运行
 
@@ -42,7 +43,8 @@ python display.py --per_page 10 --input_json custom.json --host 127.0.0.1 --port
 ### 图像展示接口
 - **`/`**：显示分类视图，按分类分页展示图像分类。
 - **`/all`**：显示所有图片，分页展示。
-- **`/<path:category>/<int:page>`** 或 **`/<path:category>`**：分类详情视图，按分类和页码展示图像。
+- **`/category/<path:category>/page/<int:page>`** 或 **`/category/<path:category>`**：分类详情视图，按分类和页码展示图像。
+- **`/category/_favorites/page/<int:page>`**：显示所有已收藏的图片，分页展示。
 
 ### 图像文件服务接口
 - **`/image/<category>/<path:filename>`**：提供图像文件服务，根据分类和文件名返回对应的图像。
@@ -59,14 +61,31 @@ python display.py --per_page 10 --input_json custom.json --host 127.0.0.1 --port
 输入的 JSON 文件应包含图像的元数据，格式如下：
 ```json
 {
-    "image_path_1": {
-        "face_scores": [1.0, 2.0, 3.0],
-        "face_landmark_scores_68": [0.5, 0.6, 0.7],
-    },
-    "image_path_2": {
-        "face_scores": [4.0, 5.0, 6.0],
-        "face_landmark_scores_68": [0.8, 0.9, 1.0],
-        "like": true
+    "version": "3",
+    "date_created": "2025-03-06T02:29:31.298360+08:00",
+    "date_updated": "2025-03-06T03:44:53.760607+08:00",
+    "img": {
+        "base_path_1": {
+            "image_path_1": {
+                "face_scores": [1.0, 2.0, 3.0],
+                "face_landmark_scores_68": [0.5, 0.6, 0.7],
+                "like": true
+            },
+            "sub_folder": {
+                "image_path_2": {
+                    "face_scores": [4.0, 5.0, 6.0],
+                    "face_landmark_scores_68": [0.8, 0.9, 1.0],
+                    "like": false
+                }
+            }
+        },
+        "base_path_2": {
+            "image_path_3": {
+                "face_scores": [7.0, 8.0, 9.0],
+                "face_landmark_scores_68": [1.1, 1.2, 1.3],
+                "like": true
+            }
+        }
     }
 }
 ```
