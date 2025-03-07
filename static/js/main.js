@@ -72,7 +72,7 @@ const toggleLike = (event, path) => {
             // 直接切换类，不操作localStorage
             heart.classList.toggle('liked');
             heart.classList.toggle('unliked');
-            alert(data.action === 'like' ? '收藏成功' : '已取消收藏');
+            // alert(data.action === 'like' ? '收藏成功' : '已取消收藏');
         } else {
             alert('操作失败');
         }
