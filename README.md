@@ -7,21 +7,23 @@
 1. **图像信息展示**：从 JSON 文件中加载图像元数据，并在 Web 界面上分页展示。
 2. **分类视图**：支持按分类浏览图像，每个分类有缩略图显示。
 3. **收藏功能**：用户可以将喜欢的图像添加到收藏夹，并单独查看收藏的图片。
-4. **点赞功能**：用户可以对图像进行点赞或取消点赞操作，点赞状态会异步保存到 JSON 文件中。
-5. **优雅关闭**：可以通过命令行输入 `Q` 或访问 `/shutdown` 接口来关闭服务器，确保数据保存完整。
+4. **未收藏功能**：新增未收藏图片的展示功能，用户可以查看所有未点赞的图片。
+5. **点赞功能**：用户可以对图像进行点赞或取消点赞操作，点赞状态会异步保存到 JSON 文件中。
+6. **优雅关闭**：可以通过命令行输入 `Q` 或访问 `/shutdown` 接口来关闭服务器，确保数据保存完整。
+7. **随机排序**：在查看收藏或未收藏图片时，支持随机排序功能。
 
 ## 安装与运行
 
 ### 安装依赖
-确保你已经安装了 Python 3.x 和 Flask。可以使用以下命令安装 Flask：
+确保你已经安装了 Python 3.x 和 Flask。可以使用以下命令安装依赖：
 ```bash
-pip install flask
+pip install -r requirements.txt
 ```
 
 ### 配置参数
 可以通过命令行参数来配置项目的运行参数，支持的参数如下：
-- `--per_page`：每页显示的项目数量，默认为 8。
-- `--input_json`：输入的 JSON 文件路径，默认为 `face.json`。
+- `--per_page`：每页显示的项目数量，默认为 20。
+- `--input_json`：输入的 JSON 文件路径，默认为 `None`（启动时会弹出文件选择对话框）。
 - `--host`：Flask 服务器的主机地址，默认为 `0.0.0.0`。
 - `--port`：Flask 服务器的端口号，默认为 5000。
 - `--debug`：启用调试模式。
@@ -33,7 +35,7 @@ python display.py
 ```
 或者指定自定义参数：
 ```bash
-python display.py --per_page 10 --input_json custom.json --host 127.0.0.1 --port 8080 --debug
+python display.py --per_page 100 --host 127.0.0.1 --port 8080 --debug
 ```
 
 ### 访问项目
@@ -45,6 +47,7 @@ python display.py --per_page 10 --input_json custom.json --host 127.0.0.1 --port
 - **`/all`**：显示所有图片，分页展示。
 - **`/category/<path:category>/page/<int:page>`** 或 **`/category/<path:category>`**：分类详情视图，按分类和页码展示图像。
 - **`/category/_favorites/page/<int:page>`**：显示所有已收藏的图片，分页展示。
+- **`/category/_unfavorites/page/<int:page>`**：显示所有未收藏的图片，分页展示。
 
 ### 图像文件服务接口
 - **`/image/<category>/<path:filename>`**：提供图像文件服务，根据分类和文件名返回对应的图像。
@@ -94,3 +97,20 @@ python display.py --per_page 10 --input_json custom.json --host 127.0.0.1 --port
 - 确保输入的 JSON 文件路径正确，并且文件格式符合要求。
 - 在关闭服务器时，建议使用命令行输入 `Q` 或访问 `/shutdown` 接口，以确保数据保存完整。
 - 如果在调试模式下运行项目，修改代码后需要手动重启服务器。
+
+## 构建可执行文件
+项目支持通过 `PyInstaller` 构建可执行文件。运行以下命令进行构建：
+```bash
+pyinstaller display.spec
+```
+构建完成后，可执行文件将生成在 `dist/` 目录下。
+
+## CI/CD 集成
+项目已配置 GitHub Actions，可以在 `main` 分支的 `push` 或 `pull_request` 事件触发时，自动构建可执行文件并生成多平台的构建产物（包括 `ubuntu-latest`、`windows-latest` 和 `macos-latest`）。
+
+### 更新说明：
+1. **新增功能**：增加了未收藏图片的展示功能，用户可以通过 `/category/_unfavorites/page/<int:page>` 查看所有未点赞的图片。
+2. **随机排序**：在查看收藏或未收藏图片时，支持随机排序功能。
+3. **GUI 文件选择**：如果未通过命令行指定 `input_json` 文件路径，启动时会弹出 GUI 文件选择对话框，用户可以选择 JSON 文件。
+4. **构建支持**：添加了通过 `PyInstaller` 构建可执行文件的说明，并支持多平台构建。
+5. **CI/CD 集成**：项目已配置 GitHub Actions，支持自动构建和生成多平台的构建产物。
