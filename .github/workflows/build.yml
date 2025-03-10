@@ -38,4 +38,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: display-${{ matrix.os }}
-        path: dist/display
+        path: |
+          dist/display*  # 匹配所有生成的可执行文件
+          dist/display/*  # 匹配 dist/display 目录下的所有文件
