@@ -134,14 +134,10 @@ def render_category_view(page: int, category: str = None) -> str:
     category_map, _ = load_image_data()
     sorted_categories = sorted(category_map.keys())
     
-    # 新增已收藏分类处理逻辑
     if category == '_favorites':
-        # 收集所有喜欢的图片
-        items = []
-        for cat_imgs in category_map.values():
-            for img in cat_imgs:
-                if img.get('like'):
-                    items.append(img)
+        items = [img for cat_imgs in category_map.values() for img in cat_imgs if img.get('like')]
+    elif category == '_unfavorites':  
+        items = [img for cat_imgs in category_map.values() for img in cat_imgs if not img.get('like', False)]
     else:
         items = category_map.get(category, []) if category else \
                 [img for cat in sorted_categories for img in category_map.get(cat, [])]

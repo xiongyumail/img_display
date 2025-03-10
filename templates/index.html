@@ -11,6 +11,8 @@
     <h1 class="page-title">
         {% if category == '_favorites' %}
             已收藏
+        {% elif category == '_unfavorites' %}
+            未收藏
         {% else %}
             {{ category or "所有分类" }}
         {% endif %}
@@ -22,6 +24,10 @@
             <option value="{{ url_for('category_view', category='_favorites', page=1) }}"
                     {% if category == '_favorites' %}selected{% endif %}>
                 已收藏
+            </option>
+            <option value="{{ url_for('category_view', category='_unfavorites', page=1) }}"
+                    {% if category == '_unfavorites' %}selected{% endif %}>
+                未收藏
             </option>
             {% for cat in all_categories %}
             <option value="{{ url_for('category_view', category=cat, page=1) }}" 
