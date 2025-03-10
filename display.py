@@ -2,7 +2,7 @@ import json
 import os
 import math
 from functools import lru_cache
-from flask import Flask, render_template, send_from_directory, abort, request, url_for, jsonify, Response
+from flask import Flask, render_template, send_from_directory, abort, request, url_for, jsonify, Response, redirect
 from urllib.parse import quote, unquote
 import webbrowser
 import threading
@@ -12,6 +12,7 @@ from queue import Queue, Empty
 from collections import defaultdict
 from datetime import datetime
 from config import get_config
+import random
 
 cached_raw_data = None
 data_lock = threading.Lock()
@@ -129,18 +130,29 @@ def serve_image(category: str, filename: str):
         os.path.basename(file_map[unique_id])
     )
 
-def render_category_view(page: int, category: str = None) -> str:
+def render_category_view(page: int, category: str = None, seed: str = None) -> str:
     """渲染分类视图模板"""
     category_map, _ = load_image_data()
     sorted_categories = sorted(category_map.keys())
     
+    # 获取对应分类的图片
     if category == '_favorites':
-        items = [img for cat_imgs in category_map.values() for img in cat_imgs if img.get('like')]
-    elif category == '_unfavorites':  
-        items = [img for cat_imgs in category_map.values() for img in cat_imgs if not img.get('like', False)]
+        items = [img for cat_imgs in category_map.values() 
+                for img in cat_imgs if img.get('like')]
+    elif category == '_unfavorites':
+        items = [img for cat_imgs in category_map.values() 
+                for img in cat_imgs if not img.get('like', False)]
     else:
         items = category_map.get(category, []) if category else \
-                [img for cat in sorted_categories for img in category_map.get(cat, [])]
+               [img for cat in sorted_categories for img in category_map.get(cat, [])]
+    
+    # 应用随机排序
+    if category in ('_favorites', '_unfavorites') and seed:
+        try:
+            random.seed(int(seed))  # 使用种子保证分页一致性
+            random.shuffle(items)
+        except ValueError:
+            random.shuffle(items)
     
     paginated, total_pages = Paginator.paginate(items, page, app.config['PER_PAGE'])
     
@@ -149,7 +161,8 @@ def render_category_view(page: int, category: str = None) -> str:
                         current_page=page,
                         total_pages=total_pages,
                         category=category,
-                        all_categories=sorted_categories)
+                        all_categories=sorted_categories,
+                        seed=seed)
 
 @app.route('/')
 def show_categories() -> str:
@@ -188,7 +201,18 @@ def category_view(category: str, page: int) -> str:
     except UnicodeDecodeError:
         abort(404, description="Invalid category name")
     
-    return render_category_view(page, current_category)
+    # 处理收藏/未收藏分类的随机种子
+    seed = request.args.get('seed', default=None, type=str)
+    if current_category in ('_favorites', '_unfavorites'):
+        if not seed:
+            # 生成新种子并重定向
+            seed = str(random.randint(0, 999999999))
+            return redirect(url_for('category_view', 
+                                  category=current_category, 
+                                  page=page, 
+                                  seed=seed))
+    
+    return render_category_view(page, current_category, seed)
 
 @app.route('/like_image', methods=['POST'])
 def like_image() -> Response:

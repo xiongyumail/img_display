@@ -66,34 +66,34 @@
     <div class="pagination">
         {% if current_page > 1 %}
             {% if category %}
-                <a class="page-link" href="{{ url_for('category_view', category=category, page=1) }}">首页</a>
-                <a class="page-link" href="{{ url_for('category_view', category=category, page=current_page - 1) }}">上一页</a>
+                <a class="page-link" 
+                   href="{{ url_for('category_view', category=category, page=1, seed=seed) }}">首页</a>
+                <a class="page-link" 
+                   href="{{ url_for('category_view', category=category, page=current_page - 1, seed=seed) }}">上一页</a>
             {% else %}
                 <a class="page-link" href="{{ url_for('show_all_images', page=1) }}">首页</a>
                 <a class="page-link" href="{{ url_for('show_all_images', page=current_page - 1) }}">上一页</a>
             {% endif %}
         {% endif %}
-
+    
         {% for p in range(1, total_pages + 1) %}
             {% if p >= current_page - 2 and p <= current_page + 2 %}
                 {% if category %}
                     <a class="page-link {% if p == current_page %}active{% endif %}" 
-                       href="{{ url_for('category_view', category=category, page=p) }}">
-                        {{ p }}
-                    </a>
+                       href="{{ url_for('category_view', category=category, page=p, seed=seed) }}">{{ p }}</a>
                 {% else %}
                     <a class="page-link {% if p == current_page %}active{% endif %}" 
-                       href="{{ url_for('show_all_images', page=p) }}">
-                        {{ p }}
-                    </a>
+                       href="{{ url_for('show_all_images', page=p) }}">{{ p }}</a>
                 {% endif %}
             {% endif %}
         {% endfor %}
-
+    
         {% if current_page < total_pages %}
             {% if category %}
-                <a class="page-link" href="{{ url_for('category_view', category=category, page=current_page + 1) }}">下一页</a>
-                <a class="page-link" href="{{ url_for('category_view', category=category, page=total_pages) }}">尾页</a>
+                <a class="page-link" 
+                   href="{{ url_for('category_view', category=category, page=current_page + 1, seed=seed) }}">下一页</a>
+                <a class="page-link" 
+                   href="{{ url_for('category_view', category=category, page=total_pages, seed=seed) }}">尾页</a>
             {% else %}
                 <a class="page-link" href="{{ url_for('show_all_images', page=current_page + 1) }}">下一页</a>
                 <a class="page-link" href="{{ url_for('show_all_images', page=total_pages) }}">尾页</a>
