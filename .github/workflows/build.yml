@@ -38,13 +38,16 @@ jobs:
       - name: Build Linux executable with Docker
         if: matrix.os == 'ubuntu-latest'
         run: |
-          docker run --rm -v "$(pwd)":/app -w /app python:3.9-slim-bullseye /bin/bash -c "
-            apt-get update -qq && apt-get install -y -qq build-essential &>/dev/null
-            python -m pip install --upgrade pip --quiet
-            pip install -r requirements.txt --quiet
-            pip install pyinstaller --quiet
-            pyinstaller display.spec
-          "
+          docker run --rm -v "$(pwd)":/app -w /app \
+            -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) \
+            python:3.9-slim-bullseye /bin/bash -c "
+              apt-get update -qq && apt-get install -y -qq build-essential &>/dev/null
+              python -m pip install --upgrade pip --quiet
+              pip install -r requirements.txt --quiet
+              pip install pyinstaller --quiet
+              pyinstaller display.spec
+              chown -R \$USER_ID:\$GROUP_ID /app/dist
+            "
 
       - name: Rename executable
         shell: bash
