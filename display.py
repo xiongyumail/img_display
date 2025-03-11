@@ -21,7 +21,8 @@ class ImageGalleryApp:
                     break
 
     def run(self):
-        threading.Timer(1, lambda: webbrowser.open(f'http://127.0.0.1:{self.args.port}')).start()
+        if not self.args.no_browser:  # 只有在没有指定 --no_browser 时才打开浏览器
+            threading.Timer(1, lambda: webbrowser.open(f'http://127.0.0.1:{self.args.port}')).start()
         input_thread = threading.Thread(target=self.input_listener, daemon=True)
         input_thread.start()
         self.web_app.app.run(host=self.args.host, port=self.args.port, debug=self.args.debug, use_reloader=False)

@@ -15,6 +15,7 @@ import random
 class WebApp:
     def __init__(self, args):
         self.args = args
+        self.replace_rules = args.replace if args.replace else []
         self.app = Flask(__name__)
         self.app.config.update({
             'PER_PAGE': self.args.per_page,
@@ -28,6 +29,22 @@ class WebApp:
         self.save_consumer_thread = threading.Thread(target=self.save_consumer, daemon=True)
         self.save_consumer_thread.start()
         self.setup_routes()
+
+    def apply_replace_rules(self, data):
+        if not self.replace_rules:
+            return data
+        data_str = json.dumps(data)
+        for old, new in self.replace_rules:
+            data_str = data_str.replace(old, new)
+        return json.loads(data_str)
+
+    def reverse_replace_rules(self, data):
+        if not self.replace_rules:
+            return data
+        data_str = json.dumps(data)
+        for old, new in self.replace_rules:
+            data_str = data_str.replace(new, old)
+        return json.loads(data_str)
 
     def setup_routes(self):
         self.app.route('/')(self.show_categories)
@@ -43,6 +60,7 @@ class WebApp:
             try:
                 data = self.save_queue.get(timeout=1)
                 with self.data_lock:
+                    data = self.reverse_replace_rules(data)
                     with open(self.app.config['JSON_PATH'], 'w', encoding='utf-8') as f:
                         json.dump(data, f, ensure_ascii=False, indent=4)
                 self.save_queue.task_done()
@@ -57,7 +75,7 @@ class WebApp:
             if self.cached_raw_data is None:
                 try:
                     with open(self.app.config['JSON_PATH'], 'r', encoding='utf-8') as f:
-                        self.cached_raw_data = json.load(f)
+                        self.cached_raw_data = self.apply_replace_rules(json.load(f))
                 except Exception as e:
                     self.app.logger.error(f"Load initial data failed: {str(e)}")
                     return {}, {}

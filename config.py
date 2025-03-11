@@ -10,6 +10,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Flask server host.')
     parser.add_argument('--port', type=int, default=5000, help='Flask server port.')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode.')
+    parser.add_argument('--replace', type=str, nargs=2, action='append',
+                        help='Temporarily replace strings in input_json, e.g., "/abc" "/def"')
+    parser.add_argument('--no_browser', action='store_true', help='Do not open the browser automatically.')
     return parser.parse_args()
 
 def get_config() -> argparse.Namespace:
@@ -66,6 +69,27 @@ def get_config() -> argparse.Namespace:
             debug_var = tk.BooleanVar(value=args.debug)
             ttk.Checkbutton(settings_frame, text="调试模式", variable=debug_var).grid(row=3, columnspan=2, pady=5)
 
+            # 是否自动打开浏览器
+            no_browser_var = tk.BooleanVar(value=args.no_browser)
+            ttk.Checkbutton(settings_frame, text="不自动打开浏览器", variable=no_browser_var).grid(row=4, columnspan=2, pady=5)
+
+            # 替换字符串部分
+            replace_frame = ttk.LabelFrame(main_frame, text="字符串替换")
+            replace_frame.grid(row=3, column=0, columnspan=3, pady=10, sticky=tk.EW)
+
+            replace_entries = []
+
+            def add_replace_entry():
+                entry_frame = ttk.Frame(replace_frame)
+                entry_frame.pack(fill=tk.X, pady=2)
+                entry1 = ttk.Entry(entry_frame, width=20)
+                entry1.pack(side=tk.LEFT, padx=5)
+                entry2 = ttk.Entry(entry_frame, width=20)
+                entry2.pack(side=tk.LEFT, padx=5)
+                replace_entries.append((entry1, entry2))
+
+            ttk.Button(replace_frame, text="添加替换项", command=add_replace_entry).pack(pady=5)
+
             # 确认按钮
             def submit_params():
                 # 验证文件路径
@@ -100,11 +124,21 @@ def get_config() -> argparse.Namespace:
                     return
 
                 args.debug = debug_var.get()
+                args.no_browser = no_browser_var.get()  # 获取是否自动打开浏览器的选项
                 args.input_json = file_path
+
+                # 处理替换字符串
+                args.replace = []
+                for entry1, entry2 in replace_entries:
+                    old_str = entry1.get().strip()
+                    new_str = entry2.get().strip()
+                    if old_str and new_str:
+                        args.replace.append([old_str, new_str])
+
                 config_root.destroy()
 
             btn_frame = ttk.Frame(main_frame)
-            btn_frame.grid(row=2, column=0, columnspan=3, pady=10)
+            btn_frame.grid(row=4, column=0, columnspan=3, pady=10)
             ttk.Button(btn_frame, text="启动服务", command=submit_params).pack(side=tk.LEFT, padx=5)
             ttk.Button(btn_frame, text="退出", command=config_root.destroy).pack(side=tk.RIGHT, padx=5)
 
