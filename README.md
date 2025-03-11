@@ -11,6 +11,8 @@
 5. **点赞功能**：用户可以对图像进行点赞或取消点赞操作，点赞状态会异步保存到 JSON 文件中。
 6. **优雅关闭**：可以通过命令行输入 `Q` 或访问 `/shutdown` 接口来关闭服务器，确保数据保存完整。
 7. **随机排序**：在查看收藏或未收藏图片时，支持随机排序功能。
+8. **字符串替换**：支持在加载 JSON 文件时进行字符串替换，便于处理不同环境下的路径问题。
+9. **自动浏览器控制**：新增 `--no_browser` 参数，允许在启动时不自动打开浏览器。
 
 ## 安装与运行
 
@@ -27,6 +29,8 @@ pip install -r requirements.txt
 - `--host`：Flask 服务器的主机地址，默认为 `0.0.0.0`。
 - `--port`：Flask 服务器的端口号，默认为 5000。
 - `--debug`：启用调试模式。
+- `--replace`：临时替换 JSON 文件中的字符串，例如 `--replace "/abc" "/def"`。
+- `--no_browser`：启动时不自动打开浏览器。
 
 ### 运行项目
 在项目根目录下，运行以下命令启动项目：
@@ -35,11 +39,11 @@ python display.py
 ```
 或者指定自定义参数：
 ```bash
-python display.py --per_page 100 --host 127.0.0.1 --port 8080 --debug
+python display.py --per_page 100 --host 127.0.0.1 --port 8080 --debug --replace "/abc" "/def" --no_browser
 ```
 
 ### 访问项目
-项目启动后，会自动打开浏览器并访问 `http://127.0.0.1:5000`。你也可以手动在浏览器中输入该地址进行访问。
+项目启动后，如果没有指定 `--no_browser` 参数，会自动打开浏览器并访问 `http://127.0.0.1:5000`。你也可以手动在浏览器中输入该地址进行访问。
 
 ## 接口说明
 ### 图像展示接口
@@ -105,6 +109,9 @@ pyinstaller display.spec
 ```
 构建完成后，可执行文件将生成在 `dist/` 目录下。
 
+### 多平台构建
+项目支持在 Linux、Windows 和 macOS 上构建可执行文件。对于 Linux 平台，构建过程会使用 Docker 来确保兼容性。
+
 ## CI/CD 集成
 项目已配置 GitHub Actions，可以在 `main` 分支的 `push` 或 `pull_request` 事件触发时，自动构建可执行文件并生成多平台的构建产物（包括 `ubuntu-latest`、`windows-latest` 和 `macos-latest`）。
 
@@ -112,5 +119,7 @@ pyinstaller display.spec
 1. **新增功能**：增加了未收藏图片的展示功能，用户可以通过 `/category/_unfavorites/page/<int:page>` 查看所有未点赞的图片。
 2. **随机排序**：在查看收藏或未收藏图片时，支持随机排序功能。
 3. **GUI 文件选择**：如果未通过命令行指定 `input_json` 文件路径，启动时会弹出 GUI 文件选择对话框，用户可以选择 JSON 文件。
-4. **构建支持**：添加了通过 `PyInstaller` 构建可执行文件的说明，并支持多平台构建。
-5. **CI/CD 集成**：项目已配置 GitHub Actions，支持自动构建和生成多平台的构建产物。
+4. **字符串替换**：新增 `--replace` 参数，支持在加载 JSON 文件时进行字符串替换。
+5. **自动浏览器控制**：新增 `--no_browser` 参数，允许在启动时不自动打开浏览器。
+6. **构建支持**：添加了通过 `PyInstaller` 构建可执行文件的说明，并支持多平台构建。
+7. **CI/CD 集成**：项目已配置 GitHub Actions，支持自动构建和生成多平台的构建产物。
