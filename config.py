@@ -3,6 +3,149 @@ import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+class ConfigGUI:
+    def __init__(self, args):
+        self.args = args
+        self.config_root = tk.Tk()
+        self.config_root.title("配置参数")
+        self.main_frame = ttk.Frame(self.config_root)
+        self.main_frame.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
+        self.replace_entries = []
+        self.create_widgets()
+
+    def create_widgets(self):
+        # 文件选择部分
+        ttk.Label(self.main_frame, text="JSON文件路径:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        self.file_entry = ttk.Entry(self.main_frame, width=50)
+        self.file_entry.grid(row=0, column=1, padx=5, pady=5)
+        ttk.Button(self.main_frame, text="浏览...", command=self.browse_file).grid(row=0, column=2, padx=5)
+
+        # 参数配置部分
+        settings_frame = ttk.LabelFrame(self.main_frame, text="服务器配置")
+        settings_frame.grid(row=1, column=0, columnspan=3, pady=10, sticky=tk.EW)
+
+        # 每页数量
+        ttk.Label(settings_frame, text="每页数量:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        self.per_page_entry = ttk.Entry(settings_frame)
+        self.per_page_entry.insert(0, str(self.args.per_page))
+        self.per_page_entry.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
+
+        # 调试模式
+        self.debug_var = tk.BooleanVar(value=self.args.debug)
+        ttk.Checkbutton(settings_frame, text="调试模式", variable=self.debug_var).grid(row=0, column=2, columnspan=2, padx=5, pady=5, sticky=tk.W)
+
+        # 主机地址
+        ttk.Label(settings_frame, text="主机地址:").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        self.host_entry = ttk.Entry(settings_frame)
+        self.host_entry.insert(0, self.args.host)
+        self.host_entry.grid(row=1, column=1, padx=5, pady=5, sticky=tk.W)
+
+        # 端口号
+        ttk.Label(settings_frame, text="端口号:").grid(row=1, column=2, padx=5, pady=5, sticky=tk.W)
+        self.port_entry = ttk.Entry(settings_frame)
+        self.port_entry.insert(0, str(self.args.port))
+        self.port_entry.grid(row=1, column=3, padx=5, pady=5, sticky=tk.W)
+
+        # 是否自动打开浏览器
+        self.no_browser_var = tk.BooleanVar(value=self.args.no_browser)
+        ttk.Checkbutton(settings_frame, text="不自动打开浏览器", variable=self.no_browser_var).grid(row=1, column=4, columnspan=2, pady=5, sticky=tk.W)
+
+        # 替换字符串部分
+        self.replace_frame = ttk.LabelFrame(self.main_frame, text="字符串替换")
+        self.replace_frame.grid(row=3, column=0, columnspan=3, pady=10, sticky=tk.EW)
+
+        ttk.Button(self.replace_frame, text="添加替换项", command=self.add_replace_entry).pack(pady=5)
+
+        # 确认按钮
+        btn_frame = ttk.Frame(self.main_frame)
+        btn_frame.grid(row=4, column=0, columnspan=3, pady=10)
+        ttk.Button(btn_frame, text="启动服务", command=self.submit_params).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="退出", command=self.config_root.destroy).pack(side=tk.RIGHT, padx=5)
+
+        # 窗口居中（根据内容自动调整大小）
+        self.config_root.update_idletasks()
+        width = self.config_root.winfo_reqwidth()
+        height = self.config_root.winfo_reqheight()
+        x = (self.config_root.winfo_screenwidth() - width) // 2
+        y = (self.config_root.winfo_screenheight() - height) // 2
+        self.config_root.geometry(f'{width}x{height}+{x}+{y}')
+
+    def browse_file(self):
+        file_path = filedialog.askopenfilename(
+            title="选择JSON文件",
+            filetypes=[("JSON文件", "*.json"), ("所有文件", "*.*")]
+        )
+        if file_path:
+            self.file_entry.delete(0, tk.END)
+            self.file_entry.insert(0, file_path)
+
+    def add_replace_entry(self):
+        entry_frame = ttk.Frame(self.replace_frame)
+        entry_frame.pack(fill=tk.X, pady=2)  # 填充水平方向
+
+        inner_frame = ttk.Frame(entry_frame)
+        inner_frame.pack(expand=True)  # 在entry_frame中居中
+
+        entry1 = ttk.Entry(inner_frame, width=20)
+        entry1.pack(side=tk.LEFT, padx=5)
+        entry2 = ttk.Entry(inner_frame, width=20)
+        entry2.pack(side=tk.LEFT, padx=5)
+        self.replace_entries.append((entry1, entry2))
+
+        # 更新窗口大小并保持居中
+        self.config_root.update_idletasks()
+        width = self.config_root.winfo_reqwidth()
+        height = self.config_root.winfo_reqheight()
+        x = (self.config_root.winfo_screenwidth() - width) // 2
+        y = (self.config_root.winfo_screenheight() - height) // 2
+        self.config_root.geometry(f"{width}x{height}+{x}+{y}")
+
+    def submit_params(self):
+        # 验证文件路径
+        file_path = self.file_entry.get().strip()
+        if not file_path:
+            messagebox.showerror("错误", "必须选择JSON文件")
+            return
+        if not os.path.isfile(file_path):
+            messagebox.showerror("错误", "文件路径无效")
+            return
+
+        # 验证数值参数
+        try:
+            self.args.per_page = int(self.per_page_entry.get())
+            if self.args.per_page <= 0:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("错误", "每页数量必须是正整数")
+            return
+
+        self.args.host = self.host_entry.get().strip()
+        if not self.args.host:
+            messagebox.showerror("错误", "主机地址不能为空")
+            return
+
+        try:
+            self.args.port = int(self.port_entry.get())
+            if not (0 <= self.args.port <= 65535):
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("错误", "端口号必须是0-65535之间的整数")
+            return
+
+        self.args.debug = self.debug_var.get()
+        self.args.no_browser = self.no_browser_var.get()
+        self.args.input_json = file_path
+
+        # 处理替换字符串
+        self.args.replace = []
+        for entry1, entry2 in self.replace_entries:
+            old_str = entry1.get().strip()
+            new_str = entry2.get().strip()
+            if old_str and new_str:
+                self.args.replace.append([old_str, new_str])
+
+        self.config_root.destroy()
+        
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Display image information using Flask app.')
     parser.add_argument('--per_page', type=int, default=20, help='Number of items per page.')
@@ -20,137 +163,8 @@ def get_config() -> argparse.Namespace:
 
     if args.input_json is None:
         try:
-            # 创建主窗口
-            config_root = tk.Tk()
-            config_root.title("配置参数")
-            
-            # 创建带滚动条的容器
-            main_frame = ttk.Frame(config_root)
-            main_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
-
-            # 文件选择部分
-            def browse_file():
-                file_path = filedialog.askopenfilename(
-                    title="选择JSON文件",
-                    filetypes=[("JSON文件", "*.json"), ("所有文件", "*.*")]
-                )
-                if file_path:
-                    file_entry.delete(0, tk.END)
-                    file_entry.insert(0, file_path)
-
-            ttk.Label(main_frame, text="JSON文件路径:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
-            file_entry = ttk.Entry(main_frame, width=40)
-            file_entry.grid(row=0, column=1, padx=5, pady=5)
-            ttk.Button(main_frame, text="浏览...", command=browse_file).grid(row=0, column=2, padx=5)
-
-            # 参数配置部分
-            settings_frame = ttk.LabelFrame(main_frame, text="服务器配置")
-            settings_frame.grid(row=1, column=0, columnspan=3, pady=10, sticky=tk.EW)
-
-            # 每页数量
-            ttk.Label(settings_frame, text="每页数量:").grid(row=0, column=0, padx=5, pady=5)
-            per_page_entry = ttk.Entry(settings_frame)
-            per_page_entry.insert(0, str(args.per_page))
-            per_page_entry.grid(row=0, column=1, padx=5, pady=5)
-
-            # 主机地址
-            ttk.Label(settings_frame, text="主机地址:").grid(row=1, column=0, padx=5, pady=5)
-            host_entry = ttk.Entry(settings_frame)
-            host_entry.insert(0, args.host)
-            host_entry.grid(row=1, column=1, padx=5, pady=5)
-
-            # 端口号
-            ttk.Label(settings_frame, text="端口号:").grid(row=2, column=0, padx=5, pady=5)
-            port_entry = ttk.Entry(settings_frame)
-            port_entry.insert(0, str(args.port))
-            port_entry.grid(row=2, column=1, padx=5, pady=5)
-
-            # 调试模式
-            debug_var = tk.BooleanVar(value=args.debug)
-            ttk.Checkbutton(settings_frame, text="调试模式", variable=debug_var).grid(row=3, columnspan=2, pady=5)
-
-            # 是否自动打开浏览器
-            no_browser_var = tk.BooleanVar(value=args.no_browser)
-            ttk.Checkbutton(settings_frame, text="不自动打开浏览器", variable=no_browser_var).grid(row=4, columnspan=2, pady=5)
-
-            # 替换字符串部分
-            replace_frame = ttk.LabelFrame(main_frame, text="字符串替换")
-            replace_frame.grid(row=3, column=0, columnspan=3, pady=10, sticky=tk.EW)
-
-            replace_entries = []
-
-            def add_replace_entry():
-                entry_frame = ttk.Frame(replace_frame)
-                entry_frame.pack(fill=tk.X, pady=2)
-                entry1 = ttk.Entry(entry_frame, width=20)
-                entry1.pack(side=tk.LEFT, padx=5)
-                entry2 = ttk.Entry(entry_frame, width=20)
-                entry2.pack(side=tk.LEFT, padx=5)
-                replace_entries.append((entry1, entry2))
-
-            ttk.Button(replace_frame, text="添加替换项", command=add_replace_entry).pack(pady=5)
-
-            # 确认按钮
-            def submit_params():
-                # 验证文件路径
-                file_path = file_entry.get().strip()
-                if not file_path:
-                    messagebox.showerror("错误", "必须选择JSON文件")
-                    return
-                if not os.path.isfile(file_path):
-                    messagebox.showerror("错误", "文件路径无效")
-                    return
-
-                # 验证数值参数
-                try:
-                    args.per_page = int(per_page_entry.get())
-                    if args.per_page <= 0:
-                        raise ValueError
-                except ValueError:
-                    messagebox.showerror("错误", "每页数量必须是正整数")
-                    return
-
-                args.host = host_entry.get().strip()
-                if not args.host:
-                    messagebox.showerror("错误", "主机地址不能为空")
-                    return
-
-                try:
-                    args.port = int(port_entry.get())
-                    if not (0 <= args.port <= 65535):
-                        raise ValueError
-                except ValueError:
-                    messagebox.showerror("错误", "端口号必须是0-65535之间的整数")
-                    return
-
-                args.debug = debug_var.get()
-                args.no_browser = no_browser_var.get()  # 获取是否自动打开浏览器的选项
-                args.input_json = file_path
-
-                # 处理替换字符串
-                args.replace = []
-                for entry1, entry2 in replace_entries:
-                    old_str = entry1.get().strip()
-                    new_str = entry2.get().strip()
-                    if old_str and new_str:
-                        args.replace.append([old_str, new_str])
-
-                config_root.destroy()
-
-            btn_frame = ttk.Frame(main_frame)
-            btn_frame.grid(row=4, column=0, columnspan=3, pady=10)
-            ttk.Button(btn_frame, text="启动服务", command=submit_params).pack(side=tk.LEFT, padx=5)
-            ttk.Button(btn_frame, text="退出", command=config_root.destroy).pack(side=tk.RIGHT, padx=5)
-
-            # 窗口居中
-            config_root.update_idletasks()
-            width = config_root.winfo_width()
-            height = config_root.winfo_height()
-            x = (config_root.winfo_screenwidth() // 2) - (width // 2)
-            y = (config_root.winfo_screenheight() // 2) - (height // 2)
-            config_root.geometry(f'+{x}+{y}')
-
-            config_root.mainloop()
+            gui = ConfigGUI(args)
+            gui.config_root.mainloop()
 
             if not args.input_json:  # 用户直接关闭窗口的情况
                 print("操作已取消")
