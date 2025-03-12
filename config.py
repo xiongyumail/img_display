@@ -2,12 +2,13 @@ import argparse
 import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from version import __version__
 
 class ConfigGUI:
     def __init__(self, args):
         self.args = args
         self.config_root = tk.Tk()
-        self.config_root.title("配置参数")
+        self.config_root.title(f"配置参数 - 版本: {__version__}")
         self.main_frame = ttk.Frame(self.config_root)
         self.main_frame.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
         self.replace_entries = []

@@ -54,7 +54,9 @@ jobs:
 
       - name: Build executable (non-Linux)
         if: matrix.os != 'ubuntu-latest'
-        run: pyinstaller display.spec
+        run: |
+          cd build
+          python build.py
 
       - name: Build Linux executable with Docker
         if: matrix.os == 'ubuntu-latest'
@@ -72,27 +74,27 @@ jobs:
               python -m pip install --upgrade pip --quiet
               pip install -r requirements.txt --quiet
               pip install pyinstaller --quiet
-              pyinstaller display.spec
-              chown -R \$USER_ID:\$GROUP_ID /app/dist
+              cd build
+              python build.py
+              chown -R \$USER_ID:\$GROUP_ID /app/build/dist
             "
 
       - name: Rename executable
         shell: bash
         run: |
-          cd dist
-          VERSION="${{ github.ref_name }}"
+          cd build/dist
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            mv display.exe ../display-windows-${VERSION}.exe
+            mv display.exe ../display-windows.exe
           elif [ "${{ matrix.os }}" = "macos-latest" ]; then
-            mv display ../display-macos-${VERSION}
+            mv display ../display-macos
           else
-            mv display ../display-linux-${VERSION}
+            mv display ../display-linux
           fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: display-${{ matrix.os }}-${{ github.ref_name }}
+          name: display-${{ matrix.os }}
           path: |
             display-*
           if-no-files-found: error

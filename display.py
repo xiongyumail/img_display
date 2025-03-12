@@ -3,6 +3,7 @@ import threading
 import requests
 from web import WebApp, Paginator
 from config import get_config
+from version import __version__
 
 class ImageGalleryApp:
     def __init__(self):
@@ -28,5 +29,6 @@ class ImageGalleryApp:
         self.web_app.app.run(host=self.args.host, port=self.args.port, debug=self.args.debug, use_reloader=False)
 
 if __name__ == '__main__':
+    print(f"Version: {__version__}")
     app = ImageGalleryApp()
     app.run()

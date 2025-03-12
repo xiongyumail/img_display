@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['display.py'],
+    ['../display.py'],
     pathex=[],
     binaries=[],
-    datas=[('templates/*', 'templates'), ('static/css/*', 'static/css'), ('static/js/*', 'static/js')],
+    datas=[('../templates/*', 'templates'), ('../static/css/*', 'static/css'), ('../static/js/*', 'static/js'), ('version.txt', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
