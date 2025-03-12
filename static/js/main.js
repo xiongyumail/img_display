@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // 图片信息展示
-const showImageInfo = (path, faceScores, landmarkScores) => {
+const showImageInfo = (category, path, faceScores, landmarkScores) => {
     const formatScore = (arr) => {
         if (!arr || arr.length === 0) return '无可用数据';
         const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
@@ -37,6 +37,12 @@ const showImageInfo = (path, faceScores, landmarkScores) => {
     document.getElementById('infoPath').textContent = path;
     document.getElementById('infoFaceScore').textContent = formatScore(faceScores);
     document.getElementById('infoLandmarkScore').textContent = formatScore(landmarkScores);
+
+    // 更新分类链接
+    const categoryLink = document.getElementById('infoCategoryLink');
+    categoryLink.href = `/category/${category}`;
+    categoryLink.textContent = category;
+
     document.getElementById('infoModal').style.display = 'flex';
 };
 

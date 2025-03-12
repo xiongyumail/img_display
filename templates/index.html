@@ -46,6 +46,7 @@
                     src="{{ url_for('serve_image', category=image.category, filename=image.filename) }}" 
                     alt="图片"
                     onclick="showImageInfo(
+                        '{{ image.category }}',
                         '{{ image.path | replace("\\", "\\\\") }}',
                         {{ image.face_scores | tojson }},
                         {{ image.landmark_scores | tojson }}
@@ -109,6 +110,10 @@
             <div class="modal-header">
                 <span class="close" onclick="closeModal()">&times;</span>
                 <h3 class="modal-title">图片详细信息</h3>
+            </div>
+            <div class="info-item">
+                <span class="info-label">分类链接：</span>
+                <a class="info-value" id="infoCategoryLink" href=""></a>
             </div>
             <div class="info-item">
                 <span class="info-label">完整路径：</span>
