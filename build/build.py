@@ -8,6 +8,8 @@ try:
 except (subprocess.CalledProcessError, FileNotFoundError):
     version = 'unknown'
 
+print(f"version: {version}")
+
 # 将版本信息写入文件
 with open('version.txt', 'w') as f:
     f.write(version)
