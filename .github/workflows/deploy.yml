@@ -80,18 +80,19 @@ jobs:
         shell: bash
         run: |
           cd dist
+          VERSION="${{ github.ref_name }}"
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            mv display.exe ../display-windows.exe
+            mv display.exe ../display-windows-${VERSION}.exe
           elif [ "${{ matrix.os }}" = "macos-latest" ]; then
-            mv display ../display-macos
+            mv display ../display-macos-${VERSION}
           else
-            mv display ../display-linux
+            mv display ../display-linux-${VERSION}
           fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: display-${{ matrix.os }}
+          name: display-${{ matrix.os }}-${{ github.ref_name }}
           path: |
             display-*
           if-no-files-found: error
