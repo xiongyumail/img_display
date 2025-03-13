@@ -1,7 +1,7 @@
 import webbrowser
 import threading
 import requests
-from web import WebApp, Paginator
+from web import WebApp
 from config import get_config
 from version import __version__
 
