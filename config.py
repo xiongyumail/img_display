@@ -17,9 +17,17 @@ class ConfigGUI:
     def create_widgets(self):
         # 文件选择部分
         ttk.Label(self.main_frame, text="JSON文件路径:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
-        self.file_entry = ttk.Entry(self.main_frame, width=50)
-        self.file_entry.grid(row=0, column=1, padx=5, pady=5)
-        ttk.Button(self.main_frame, text="浏览...", command=self.browse_file).grid(row=0, column=2, padx=5)
+        
+        # 使用 Listbox 显示多文件路径
+        self.file_listbox = tk.Listbox(self.main_frame, width=50, height=3, selectmode=tk.EXTENDED)
+        self.file_listbox.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
+        
+        # 文件操作按钮框架
+        file_btn_frame = ttk.Frame(self.main_frame)
+        file_btn_frame.grid(row=0, column=2, padx=5, sticky=tk.W)
+        
+        ttk.Button(file_btn_frame, text="添加...", command=self.add_files).pack(pady=2)
+        ttk.Button(file_btn_frame, text="移除", command=self.remove_files).pack(pady=2)
 
         # 参数配置部分
         settings_frame = ttk.LabelFrame(self.main_frame, text="服务器配置")
@@ -71,14 +79,20 @@ class ConfigGUI:
         y = (self.config_root.winfo_screenheight() - height) // 2
         self.config_root.geometry(f'{width}x{height}+{x}+{y}')
 
-    def browse_file(self):
-        file_path = filedialog.askopenfilename(
+    def add_files(self):
+        file_paths = filedialog.askopenfilenames(
             title="选择JSON文件",
             filetypes=[("JSON文件", "*.json"), ("所有文件", "*.*")]
         )
-        if file_path:
-            self.file_entry.delete(0, tk.END)
-            self.file_entry.insert(0, file_path)
+        if file_paths:
+            for path in file_paths:
+                if path not in self.file_listbox.get(0, tk.END):
+                    self.file_listbox.insert(tk.END, path)
+
+    def remove_files(self):
+        selected = self.file_listbox.curselection()
+        for index in reversed(selected):
+            self.file_listbox.delete(index)
 
     def add_replace_entry(self):
         entry_frame = ttk.Frame(self.replace_frame)
@@ -103,13 +117,14 @@ class ConfigGUI:
 
     def submit_params(self):
         # 验证文件路径
-        file_path = self.file_entry.get().strip()
-        if not file_path:
-            messagebox.showerror("错误", "必须选择JSON文件")
+        file_paths = self.file_listbox.get(0, tk.END)
+        if not file_paths:
+            messagebox.showerror("错误", "必须选择至少一个JSON文件")
             return
-        if not os.path.isfile(file_path):
-            messagebox.showerror("错误", "文件路径无效")
-            return
+        for path in file_paths:
+            if not os.path.isfile(path):
+                messagebox.showerror("错误", f"文件路径无效: {path}")
+                return
 
         # 验证数值参数
         try:
@@ -135,7 +150,7 @@ class ConfigGUI:
 
         self.args.debug = self.debug_var.get()
         self.args.no_browser = self.no_browser_var.get()
-        self.args.input_json = file_path
+        self.args.input_json = list(file_paths)  # 存储为列表
 
         # 处理替换字符串
         self.args.replace = []
@@ -146,11 +161,12 @@ class ConfigGUI:
                 self.args.replace.append([old_str, new_str])
 
         self.config_root.destroy()
-        
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Display image information using Flask app.')
     parser.add_argument('--per_page', type=int, default=20, help='Number of items per page.')
-    parser.add_argument('--input_json', type=str, default=None, help='Input JSON file path.')
+    parser.add_argument('--input_json', type=str, nargs='+', default=None,  # 支持多个文件
+                        help='Input JSON file paths (multiple allowed).')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Flask server host.')
     parser.add_argument('--port', type=int, default=5000, help='Flask server port.')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode.')
