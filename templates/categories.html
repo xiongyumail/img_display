@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>分类目录</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/categories.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/json_selector.css') }}">
 </head>
 <body>
     <h1 class="page-header">分类目录</h1>
@@ -49,5 +50,16 @@
     </nav>
 
     <a href="/all" class="view-all-btn">查看所有图片</a>
+
+    <!-- 新增JSON文件切换下拉菜单 -->
+    <div class="json-selector">
+        <select class="json-dropdown" onchange="window.location.href='/select_json/' + this.value">
+            {% for path in json_files %}
+            <option value="{{ loop.index0 }}" {% if loop.index0 == current_json_index %}selected{% endif %}>
+                {{ path }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
 </body>
 </html>
