@@ -10,6 +10,15 @@
 <body>
     <header>
         <h1 class="page-header">分类目录</h1>
+        <div class="json-selector">
+            <select class="json-dropdown" onchange="window.location.href='/select_json/' + this.value">
+                {% for path in json_files %}
+                <option value="{{ loop.index0 }}" {% if loop.index0 == current_json_index %}selected{% endif %}>
+                    {{ path }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
     </header>
     <main>
         <section class="category-grid" aria-label="分类列表">
@@ -49,16 +58,6 @@
             {% endif %}
         </nav>
         <a href="/all" class="view-all-btn">查看所有图片</a>
-        <!-- 新增JSON文件切换下拉菜单 -->
-        <div class="json-selector">
-            <select class="json-dropdown" onchange="window.location.href='/select_json/' + this.value">
-                {% for path in json_files %}
-                <option value="{{ loop.index0 }}" {% if loop.index0 == current_json_index %}selected{% endif %}>
-                    {{ path }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
     </footer>
 </body>
 </html>    

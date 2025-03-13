@@ -18,6 +18,15 @@
                 {{ category or "所有分类" }}
             {% endif %}
         </h1>
+        <div class="json-selector">
+            <select class="json-dropdown" onchange="window.location.href='/select_json/' + this.value">
+                {% for path in json_files %}
+                <option value="{{ loop.index0 }}" {% if loop.index0 == current_json_index %}selected{% endif %}>
+                    {{ path }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
         <div class="category-select">
             <select class="category-dropdown" onchange="location = this.value;">
                 <option value="{{ url_for('show_all_images', page=1) }}">所有分类</option>
@@ -102,16 +111,6 @@
             {% endif %}
         </div>
         <a href="{{ url_for('show_categories') }}" class="view-all">查看分类目录</a>
-        <!-- 新增JSON文件切换下拉菜单 -->
-        <div class="json-selector">
-            <select class="json-dropdown" onchange="window.location.href='/select_json/' + this.value">
-                {% for path in json_files %}
-                <option value="{{ loop.index0 }}" {% if loop.index0 == current_json_index %}selected{% endif %}>
-                    {{ path }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
     </footer>
     <!-- 模态框 -->
     <div id="infoModal" class="modal">
