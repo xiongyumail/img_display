@@ -52,12 +52,15 @@ a:focus-visible {
     font-size: 2.5rem;
 }
 
-/* 分类选择 */
+/* 分类选择和 JSON 选择器 */
 .category-select,
 .json-selector {
     max-width: 800px;
     margin: 0 auto;
     padding: 0 20px;
+    display: flex;
+    justify-content: center;
+    width: 100%; /* 确保宽度一致 */
 }
 
 .category-dropdown,
@@ -69,7 +72,7 @@ a:focus-visible {
     font-size: 1rem;
     cursor: pointer;
     transition: all var(--transition-speed) ease;
-    width: auto;
+    width: 100%; /* 确保宽度一致 */
     min-width: 200px;
     max-width: 90vw;
     appearance: none;
