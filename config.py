@@ -3,6 +3,7 @@ import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from version import __version__
+import sys
 
 class ConfigGUI:
     def __init__(self, args):
@@ -185,13 +186,13 @@ def get_config() -> argparse.Namespace:
 
             if not args.input_json:  # 用户直接关闭窗口的情况
                 print("操作已取消")
-                exit(0)
+                sys.exit(0)
 
         except ImportError:
             print("错误：需要tkinter支持GUI文件选择。")
-            exit(1)
+            sys.exit(1)
         except Exception as e:
             print(f"无法打开文件对话框: {str(e)}")
-            exit(1)
+            sys.exit(1)
 
     return args
