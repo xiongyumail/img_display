@@ -256,13 +256,13 @@ class WebApp:
 
     @staticmethod
     def paginate(items: List[Any], page: int, per_page: int) -> Tuple[List[Any], int]:
-        total = len(items)
-        if total == 0:
-            return [], 1
-        total_pages = math.ceil(total / per_page)
-        page = max(1, min(page, total_pages))
+        if not items:
+            return [], 1  # 处理空列表的情况
         start = (page - 1) * per_page
-        return items[start:start+per_page], total_pages
+        end = start + per_page
+        result = items[start:end]
+        total_pages = math.ceil(len(items) / per_page)
+        return result, total_pages
 
     def get_category_thumbnail(self, category: str) -> Dict:
         category_map, _ = self.load_image_data()

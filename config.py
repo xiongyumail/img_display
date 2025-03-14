@@ -40,7 +40,7 @@ class ConfigGUI:
         self.per_page_entry.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
 
         # 调试模式
-        self.debug_var = tk.BooleanVar(value=self.args.debug)
+        self.debug_var = tk.BooleanVar(master=self.config_root, value=self.args.debug)
         ttk.Checkbutton(settings_frame, text="调试模式", variable=self.debug_var).grid(row=0, column=2, columnspan=2, padx=5, pady=5, sticky=tk.W)
 
         # 主机地址
@@ -56,7 +56,7 @@ class ConfigGUI:
         self.port_entry.grid(row=1, column=3, padx=5, pady=5, sticky=tk.W)
 
         # 是否自动打开浏览器
-        self.no_browser_var = tk.BooleanVar(value=self.args.no_browser)
+        self.no_browser_var = tk.BooleanVar(master=self.config_root, value=self.args.no_browser)
         ttk.Checkbutton(settings_frame, text="不自动打开浏览器", variable=self.no_browser_var).grid(row=1, column=4, columnspan=2, pady=5, sticky=tk.W)
 
         # 替换字符串部分
