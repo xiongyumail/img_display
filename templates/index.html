@@ -55,6 +55,7 @@
                     <img class="image-item" 
                         src="{{ url_for('serve_image', category=image.category, filename=image.filename) }}" 
                         alt="图片"
+                        loading="lazy"
                         onclick="showImageInfo(
                             '{{ image.category }}',
                             '{{ image.path | replace("\\", "\\\\") }}',

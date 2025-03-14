@@ -1,27 +1,30 @@
 // static/js/main.js
 // 收藏功能相关
 document.addEventListener('DOMContentLoaded', () => {
+    const heartIcons = document.querySelectorAll('.heart-icon');
+    const imageItems = document.querySelectorAll('.image-item');
+
     // 初始化收藏状态
-    document.querySelectorAll('.heart-icon').forEach(heart => {
+    heartIcons.forEach(heart => {
         const isLiked = heart.dataset.liked === 'true';
         heart.classList.toggle('liked', isLiked);
         heart.classList.toggle('unliked', !isLiked);
     });
 
     // 处理图片加载
-    document.querySelectorAll('.image-item').forEach(img => {
+    imageItems.forEach(img => {
         const wrapper = img.closest('.image-wrapper');
         
         const handleLoad = () => {
             wrapper.classList.add('loaded');
-            wrapper.querySelector('.heart-icon').style.visibility = 'visible'; // 显式设置可见
+            wrapper.querySelector('.heart-icon').style.visibility = 'visible';
         };
 
         if (img.complete) {
             handleLoad();
         } else {
             img.addEventListener('load', handleLoad);
-            img.addEventListener('error', handleLoad); // 容错处理
+            img.addEventListener('error', handleLoad);
         }
     });
 });
@@ -69,22 +72,25 @@ const toggleLike = (event, path) => {
         },
         body: JSON.stringify({ 
             path: path,
-            action: isLiked ? 'unlike' : 'like' // 根据当前状态切换动作
+            action: isLiked ? 'unlike' : 'like'
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            // 直接切换类，不操作localStorage
             heart.classList.toggle('liked');
             heart.classList.toggle('unliked');
-            // alert(data.action === 'like' ? '收藏成功' : '已取消收藏');
         } else {
-            alert('操作失败');
+            alert(`操作失败: ${data.message || '未知错误'}`);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('操作失败');
+        alert(`操作失败: ${error.message}`);
     });
 };
