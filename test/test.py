@@ -160,6 +160,104 @@ class TestWebApp(unittest.TestCase):
             args, kwargs = mock_render.call_args
             self.assertEqual(kwargs['total_images'], 30)
 
+    def test_select_json_valid_index(self):
+        """测试选择有效的JSON文件索引"""
+        with self.web_app.app.test_client() as client:
+            client.get('/select_json/0')
+            with client.session_transaction() as sess:
+                self.assertEqual(sess['current_json_index'], 0)
+
+    def test_select_json_invalid_index(self):
+        """测试选择无效的JSON文件索引时重置为0"""
+        with self.web_app.app.test_client() as client:
+            # 初始索引设为有效值
+            with client.session_transaction() as sess:
+                sess['current_json_index'] = 0
+            # 请求超出范围的索引
+            client.get('/select_json/999')
+            with client.session_transaction() as sess:
+                self.assertEqual(sess['current_json_index'], 0)
+
+    def test_serve_image_not_found(self):
+        """测试请求不存在的图片返回404"""
+        # 模拟空数据
+        self.web_app.load_image_data = MagicMock(return_value=(
+            defaultdict(list),
+            {}
+        ))
+        with self.web_app.app.test_client() as client:
+            response = client.get('/image/invalid_cat/nonexistent.jpg')
+            self.assertEqual(response.status_code, 404)
+            self.assertIn('Image not found', response.get_data(as_text=True))
+
+    @patch('web.render_template')
+    def test_render_favorites_category(self, mock_render):
+        """测试收藏夹分类只显示标记为喜欢的图片"""
+        mock_render.return_value = ''
+        # 模拟数据：3个喜欢，2个不喜欢，并添加必要字段
+        test_items = [
+            {'filename': 'img1.jpg', 'like': True, 'category': 'cat1', 'face_scores': []},
+            {'filename': 'img2.jpg', 'like': False, 'category': 'cat1', 'face_scores': []},
+            {'filename': 'img3.jpg', 'like': True, 'category': 'cat1', 'face_scores': []},
+            {'filename': 'img4.jpg', 'like': True, 'category': 'cat1', 'face_scores': []},
+            {'filename': 'img5.jpg', 'like': False, 'category': 'cat1', 'face_scores': []}
+        ]
+        category_map = defaultdict(list, {'cat1': test_items})
+        self.web_app.load_image_data = MagicMock(return_value=(category_map, {}))
+        
+        with self.web_app.app.test_request_context('/category/_favorites'):
+            self.web_app.render_category_view(page=1, category='_favorites')
+            # 检查传递给模板的图片数量应为3
+            args, kwargs = mock_render.call_args
+            self.assertEqual(len(kwargs['images']), 3)  # 确保此处断言正确
+
+    @patch('web.render_template')
+    def test_render_category_with_seed(self, mock_render):
+        """测试相同种子生成相同的随机顺序"""
+        mock_render.return_value = ''
+        test_items = [{'filename': f'img{i}.jpg'} for i in range(50)]
+        category_map = defaultdict(list, {'test_cat': test_items})
+        self.web_app.load_image_data = MagicMock(return_value=(category_map, {}))
+        
+        # 使用相同种子两次调用，检查顺序是否一致
+        seed = '12345'
+        with self.web_app.app.test_request_context(f'/?seed={seed}'):
+            self.web_app.render_category_view(page=1, seed=seed)
+            first_call_images = mock_render.call_args[1]['images']
+        
+        # 重置mock，再次调用
+        mock_render.reset_mock()
+        with self.web_app.app.test_request_context(f'/?seed={seed}'):
+            self.web_app.render_category_view(page=1, seed=seed)
+            second_call_images = mock_render.call_args[1]['images']
+        
+        self.assertEqual([img['filename'] for img in first_call_images],
+                         [img['filename'] for img in second_call_images])
+
+    def test_paginate_out_of_range_page(self):
+        """测试超出范围的页码返回空列表"""
+        items = list(range(50))  # 共50项，每页20条，总页数3
+        page = 5  # 有效页为1-3
+        per_page = 20
+        result, total_pages = WebApp.paginate(items, page, per_page)
+        self.assertEqual(len(result), 0)
+        self.assertEqual(total_pages, 3)
+
+    def test_get_category_thumbnail(self):
+        """测试获取分类缩略图"""
+        # 模拟分类有图片
+        test_items = [{'filename': 'thumb.jpg'}, {'filename': 'img2.jpg'}]
+        category_map = defaultdict(list, {'test_cat': test_items})
+        self.web_app.load_image_data = MagicMock(return_value=(category_map, {}))
+        thumbnail = self.web_app.get_category_thumbnail('test_cat')
+        self.assertEqual(thumbnail['filename'], 'thumb.jpg')
+
+    def test_get_category_thumbnail_empty(self):
+        """测试空分类返回默认缩略图"""
+        self.web_app.load_image_data = MagicMock(return_value=(defaultdict(list), {}))
+        thumbnail = self.web_app.get_category_thumbnail('empty_cat')
+        self.assertEqual(thumbnail, {})
+
 class TestConfigGUI(unittest.TestCase):
     @patch('tkinter.Tk')
     @patch('tkinter.filedialog.askopenfilenames')
