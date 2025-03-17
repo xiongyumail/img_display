@@ -94,3 +94,50 @@ const toggleLike = (event, path) => {
         alert(`操作失败: ${error.message}`);
     });
 };
+
+// 一键点赞所有图片
+function BatchLike() {
+    const hearts = document.querySelectorAll('.heart-icon');
+    const paths = Array.from(hearts).map(heart => heart.dataset.path);
+
+    if (!paths.length) {
+        alert('当前页面没有可操作的图片');
+        return;
+    }
+
+    fetch('/like_image', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            paths: paths,
+            action: 'like'
+        })
+    })
+    .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw data;
+        return data;
+    })
+    .then(data => {
+        hearts.forEach(heart => {
+            const path = heart.dataset.path;
+            if (data.found.includes(path)) {
+                heart.classList.add('liked');
+                heart.classList.remove('unliked');
+                heart.dataset.liked = 'true';
+            }
+        });
+        
+        let message = `成功点赞${data.found.length}张图片`;
+        if (data.not_found.length) {
+            message += `, ${data.not_found.length}张未找到`;
+        }
+        alert(message + '!');
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert(`操作失败: ${error.message || '服务器错误'}`);
+    });
+}

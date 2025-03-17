@@ -65,7 +65,8 @@
                     >
                     <div class="heart-icon {% if image.like %}liked{% else %}unliked{% endif %}" 
                         onclick="toggleLike(event, '{{ image.path | replace("\\", "\\\\") }}')"
-                        data-liked="{{ 'true' if image.like else 'false' }}">
+                        data-liked="{{ 'true' if image.like else 'false' }}"
+                        data-path="{{ image.path | replace('\\', '/') }}">
                         ❤
                     </div>
                 </div>
@@ -110,6 +111,9 @@
                     <a class="page-link" href="{{ url_for('show_all_images', page=total_pages) }}">尾页</a>
                 {% endif %}
             {% endif %}
+        </div>
+        <div class="bulk-like-container">
+            <button class="batch-like-btn" onclick="BatchLike()">❤ 一键点赞本页所有图片</button>
         </div>
         <a href="{{ url_for('show_categories') }}" class="view-all">查看分类目录</a>
     </footer>
