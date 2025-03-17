@@ -192,43 +192,91 @@ class WebApp:
         json_path = self.get_current_json_path()
         try:
             data = request.get_json()
-            req_path = os.path.normpath(data.get('path'))
+            # 兼容处理单个路径或多个路径
+            paths = data.get('paths', [])
+            # 如果没有提供paths，检查是否有单个path参数
+            if not paths:
+                single_path = data.get('path')
+                if single_path is not None:
+                    paths = [single_path]
+                else:
+                    return jsonify({'success': False, 'message': 'No paths provided'}), 400
+            
             action = data.get('action', 'like')
+            found_paths = []
+            not_found_paths = []
 
             with self.data_lock:
+                # 确保数据已加载
                 if json_path not in self.cached_raw_data:
                     with open(json_path, 'r', encoding='utf-8') as f:
                         self.cached_raw_data[json_path] = json.load(f)
                 
                 img_data = self.cached_raw_data[json_path].setdefault('img', {})
-                found = False
+                
+                # 处理每个路径
+                for req_path in paths:
+                    req_path_norm = os.path.normpath(req_path)
+                    found = False
+                    
+                    # 遍历所有基准路径查找匹配项
+                    for base in list(img_data.keys()):
+                        base_abs = os.path.abspath(os.path.normpath(base))
+                        
+                        # 检查路径是否属于当前基准路径
+                        try:
+                            common_path = os.path.commonpath([base_abs, req_path_norm])
+                        except ValueError:
+                            continue
+                        
+                        if common_path != base_abs:
+                            continue
+                        
+                        # 计算相对路径并分割层级
+                        rel_path = os.path.relpath(req_path_norm, base_abs).replace('\\', '/')
+                        parts = rel_path.split('/')
+                        current_node = img_data[base]
+                        
+                        # 遍历目录结构
+                        for part in parts[:-1]:
+                            current_node = current_node.setdefault(part, {})
+                        
+                        # 获取文件节点
+                        filename = parts[-1]
+                        file_node = current_node.get(filename)
+                        
+                        if file_node:
+                            file_node['like'] = (action == 'like')
+                            found = True
+                            found_paths.append(req_path)
+                            break  # 找到后跳出基准路径循环
+                    
+                    if not found:
+                        not_found_paths.append(req_path)
 
-                for base in list(img_data.keys()):
-                    base_abs = os.path.abspath(os.path.normpath(base))
-                    if os.path.commonpath([base_abs, req_path]) != base_abs:
-                        continue
-
-                    rel_path = os.path.relpath(req_path, base_abs).replace('\\', '/')
-                    parts = rel_path.split('/')
-                    current = img_data[base]
-                    for part in parts[:-1]:
-                        current = current.setdefault(part, {})
-                    file_node = current.get(parts[-1])
-                    if file_node:
-                        file_node['like'] = (action == 'like')
-                        self.cached_raw_data[json_path]['date_updated'] = datetime.now().astimezone().isoformat()
-                        found = True
-                        break
-
-                if not found:
-                    return jsonify({'success': False, 'message': 'Image not found'}), 404
-
-                self.save_queue.put((json_path, self.cached_raw_data[json_path].copy()))
-                return jsonify({'success': True, 'action': action})
+                # 如果有成功更新的路径则触发保存
+                if found_paths:
+                    self.cached_raw_data[json_path]['date_updated'] = datetime.now().astimezone().isoformat()
+                    self.save_queue.put((json_path, self.cached_raw_data[json_path].copy()))
+                    
+                    response = {
+                        'success': True,
+                        'action': action,
+                        'found': found_paths,
+                        'not_found': not_found_paths
+                    }
+                    # 部分成功仍返回200，但包含未找到信息
+                    return jsonify(response), 200
+                else:
+                    return jsonify({'success': False, 'message': 'None of the images were found', 'not_found': not_found_paths}), 404
 
         except Exception as e:
-            self.app.logger.error(f"Like error: {str(e)}")
-            return jsonify({'success': False, 'message': str(e)}), 500
+            self.app.logger.error(f"Like operation error: {str(e)}")
+            return jsonify({
+                'success': False,
+                'message': f"Server error: {str(e)}",
+                'error_type': type(e).__name__
+            }), 500
 
     def save_consumer(self):
         while self.save_thread_running:
