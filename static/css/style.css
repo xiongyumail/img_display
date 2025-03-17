@@ -201,6 +201,7 @@ a:focus-visible {
 .info-value {
     color: var(--text-color);
     font-weight: 500;
+    overflow-wrap: break-word;
 }
 
 /* 按钮 */
