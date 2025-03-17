@@ -17,6 +17,7 @@
             {% else %}
                 {{ category or "所有分类" }}
             {% endif %}
+            ({{ total_images }}P)
         </h1>
         <div class="json-selector">
             <select class="json-dropdown" onchange="window.location.href='/select_json/' + this.value">

@@ -143,15 +143,17 @@ class WebApp:
                 random.shuffle(items)
 
         paginated, total_pages = self.paginate(items, page, self.app.config['PER_PAGE'])
+        total_images = len(items)  # 计算总图片数量
         return render_template('index.html',
-                               images=paginated,
-                               current_page=page,
-                               total_pages=total_pages,
-                               category=category,
-                               all_categories=sorted_categories,
-                               json_files=self.json_files,
-                               current_json_index=session.get('current_json_index', 0),
-                               seed=seed)
+                            images=paginated,
+                            current_page=page,
+                            total_pages=total_pages,
+                            category=category,
+                            all_categories=sorted_categories,
+                            json_files=self.json_files,
+                            current_json_index=session.get('current_json_index', 0),
+                            seed=seed,
+                            total_images=total_images)  # 传递总图片数量
 
     def show_categories(self) -> str:
         page = request.args.get('page', 1, type=int)
