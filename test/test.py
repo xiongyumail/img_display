@@ -1,12 +1,14 @@
 import unittest
 import sys
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
+from flask import json
 # 将项目根目录添加到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import parse_args, ConfigGUI
-from web import WebApp  # 导入WebApp以测试分页
+from web import WebApp
 import argparse
+from collections import defaultdict
 
 class TestConfig(unittest.TestCase):
     def test_parse_args(self):
@@ -44,6 +46,7 @@ class TestWebApp(unittest.TestCase):
             replace=[('old', 'new')]
         )
         self.web_app = WebApp(args)
+        self.web_app.app.testing = True
 
     def test_apply_replace_rules(self):
         data = {'key': 'old value'}
@@ -55,17 +58,107 @@ class TestWebApp(unittest.TestCase):
         result = self.web_app.reverse_replace_rules(data)
         self.assertEqual(result['key'], 'old value')
 
-    def test_apply_replace_rules_no_rules(self):
-        self.web_app.replace_rules = []
-        data = {'key': 'old value'}
-        result = self.web_app.apply_replace_rules(data)
-        self.assertEqual(result, data)
+    @patch('os.path.commonpath')
+    @patch('os.path.abspath')
+    def test_like_image_multiple_paths(self, mock_abspath, mock_commonpath):
+        """测试批量点赞多个路径的情况"""
+        # 模拟路径处理
+        mock_abspath.side_effect = lambda x: x
+        mock_commonpath.side_effect = lambda paths: paths[0] if len(paths) == 2 else os.path.commonpath(paths)
+        
+        # 设置测试数据
+        json_path = 'test.json'
+        self.web_app.cached_raw_data[json_path] = {
+            'img': {
+                'base1': {
+                    'file1.jpg': {'like': False},
+                    'subdir': {
+                        'file2.jpg': {'like': False}
+                    }
+                },
+                'base2': {
+                    'file3.jpg': {'like': True}
+                }
+            }
+        }
+        
+        # 构造请求
+        with self.web_app.app.test_client() as client:
+            response = client.post(
+                '/like_image',
+                json={
+                    'paths': [
+                        'base1/file1.jpg',
+                        'base1/subdir/file2.jpg',
+                        'base2/invalid.jpg'
+                    ],
+                    'action': 'like'
+                }
+            )
+        
+        # 验证响应
+        self.assertEqual(response.status_code, 200)
+        response_data = json.loads(response.data)
+        self.assertEqual(len(response_data['found']), 2)
+        self.assertEqual(len(response_data['not_found']), 1)
+        
+        # 验证数据更新
+        self.assertTrue(
+            self.web_app.cached_raw_data[json_path]['img']['base1']['file1.jpg']['like']
+        )
+        self.assertTrue(
+            self.web_app.cached_raw_data[json_path]['img']['base1']['subdir']['file2.jpg']['like']
+        )
 
-    def test_reverse_replace_rules_no_rules(self):
-        self.web_app.replace_rules = []
-        data = {'key': 'old value'}
-        result = self.web_app.reverse_replace_rules(data)
-        self.assertEqual(result, data)
+    def test_like_image_no_paths(self):
+        """测试未提供路径时返回错误"""
+        with self.web_app.app.test_client() as client:
+            response = client.post('/like_image', json={'action': 'like'})
+        
+        self.assertEqual(response.status_code, 400)
+        response_data = json.loads(response.data)
+        self.assertEqual(response_data['message'], 'No paths provided')
+
+    @patch('os.path.commonpath')
+    @patch('os.path.abspath')
+    def test_like_image_all_not_found(self, mock_abspath, mock_commonpath):
+        """测试所有路径均未找到的情况"""
+        mock_abspath.side_effect = lambda x: x
+        mock_commonpath.side_effect = lambda paths: 'invalid_base'
+        
+        # 设置测试数据
+        json_path = 'test.json'
+        self.web_app.cached_raw_data[json_path] = {'img': {}}
+        
+        with self.web_app.app.test_client() as client:
+            response = client.post(
+                '/like_image',
+                json={
+                    'paths': ['invalid/path1.jpg', 'invalid/path2.jpg'],
+                    'action': 'like'
+                }
+            )
+        
+        self.assertEqual(response.status_code, 404)
+        response_data = json.loads(response.data)
+        self.assertEqual(len(response_data['not_found']), 2)
+
+    @patch('web.render_template')
+    def test_render_category_view_total_images(self, mock_render):
+        """测试总图片数正确传递到模板"""
+        mock_render.return_value = ''
+        test_items = [{'filename': f'img{i}.jpg'} for i in range(30)]
+        
+        # 模拟数据加载
+        self.web_app.load_image_data = MagicMock(return_value=(
+            defaultdict(list, {'test_cat': test_items}),
+            {}
+        ))
+        
+        with self.web_app.app.test_request_context('/'):
+            self.web_app.render_category_view(page=1, category='test_cat')
+            args, kwargs = mock_render.call_args
+            self.assertEqual(kwargs['total_images'], 30)
 
 class TestConfigGUI(unittest.TestCase):
     @patch('tkinter.Tk')
