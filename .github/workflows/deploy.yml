@@ -24,8 +24,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run tests
-        run: python test/test.py
+      - name: Run config tests
+        run: python test/test_config.py
+
+      - name: Run web tests
+        run: python test/test_web.py
 
   build:
     needs: test
