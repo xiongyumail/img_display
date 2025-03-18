@@ -160,8 +160,10 @@ class WebApp:
 
     def show_categories(self) -> str:
         page = request.args.get('page', 1, type=int)
+        page = max(page, 1)
         category_map, _ = self.load_image_data()
-        categories, total_pages = self.paginate(sorted(category_map.keys()), page, self.app.config['PER_PAGE'])
+        sorted_categories = sorted(category_map.keys())
+        categories, total_pages = self.paginate(sorted_categories, page, self.app.config['PER_PAGE'])
         
         category_list = [{
             'name': cat,
@@ -170,18 +172,20 @@ class WebApp:
         } for cat in categories]
 
         return render_template('categories.html',
-                               categories=category_list,
-                               current_page=page,
-                               total_pages=total_pages,
-                               json_files=self.json_files,
-                               current_json_index=session.get('current_json_index', 0))
+                            categories=category_list,
+                            current_page=page,
+                            total_pages=total_pages,
+                            json_files=self.json_files,
+                            current_json_index=session.get('current_json_index', 0))
 
     def show_all_images(self) -> str:
         page = request.args.get('page', 1, type=int)
+        page = max(page, 1)
         return self.render_category_view(page)
 
     def category_view(self, category: str) -> str:
         page = request.args.get('page', 1, type=int)
+        page = max(page, 1)
         try:
             current_category = unquote(category)
         except UnicodeDecodeError:

@@ -1,12 +1,13 @@
 import unittest
 import sys
 import os
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import patch, MagicMock, PropertyMock, mock_open
 from flask import json as flask_json, Response
 import argparse
 from collections import defaultdict
 from urllib.parse import quote
 import json
+import threading
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from web import WebApp
@@ -84,6 +85,11 @@ class TestWebApp(unittest.TestCase):
         )
         self.web_app = WebApp(args)
         self.web_app.app.testing = True
+        # 预先填充测试用的JSON数据，避免文件读取错误
+        self.web_app.cached_raw_data['test.json'] = {
+            'img': {},
+            'date_updated': '2025-03-18T13:51:59+00:00'
+        }
 
     def test_apply_replace_rules(self):
         data = {'key': 'old value'}
@@ -329,11 +335,21 @@ class TestWebApp(unittest.TestCase):
         mock_replace.return_value = {'img': {}}
         json_path = 'test.json'
         self.web_app.get_current_json_path = lambda: json_path
+        
+        # 清除预设缓存
+        if json_path in self.web_app.cached_raw_data:
+            del self.web_app.cached_raw_data[json_path]
+
+        # 使用mock_open和json.load模拟
+        with patch('builtins.open', mock_open(read_data='{}')):  # 简化mock_open使用
+            with patch('json.load', return_value={'img': {}}):
+                # 第一次加载触发apply_replace_rules
+                self.web_app.load_image_data()
+                mock_replace.assert_called_once()  # 直接验证调用次数
+
+        # 第二次加载使用缓存
         self.web_app.load_image_data()
-        self.assertTrue(mock_replace.called)
-        mock_replace.reset_mock()
-        self.web_app.load_image_data()
-        self.assertFalse(mock_replace.called)
+        mock_replace.assert_called_once()  # 总调用次数仍为1
 
     def test_category_view_invalid_category(self):
         self.web_app.load_image_data = MagicMock(return_value=(
@@ -677,6 +693,145 @@ class TestWebApp(unittest.TestCase):
                 self.assertEqual(kwargs['current_page'], 2)
                 self.assertEqual(kwargs['total_pages'], 2)  # ceil(35/20)=2
                 self.assertEqual(kwargs['total_images'], 35)
+
+    @patch('web.open', side_effect=PermissionError("Permission denied"))
+    def test_load_image_data_permission_error(self, mock_open):
+        """测试加载JSON文件时遇到权限错误"""
+        self.web_app.get_current_json_path = lambda: 'no_access.json'
+        with patch.object(self.web_app.app.logger, 'error') as mock_error:
+            category_map, file_map = self.web_app.load_image_data()
+            mock_error.assert_called_with("Load data failed for no_access.json: Permission denied")
+        self.assertEqual(len(category_map), 0)
+        self.assertEqual(len(file_map), 0)
+
+    def test_invalid_page_parameter(self):
+        """测试无效的页码参数"""
+        with self.web_app.app.test_client() as client:
+            # 测试非数字页码
+            response = client.get('/?page=invalid')
+            self.assertEqual(response.status_code, 200)  # 当前实现会转为默认页码1
+            # 测试负数页码
+            response = client.get('/?page=-5')
+            self.assertEqual(response.status_code, 200)
+            # 验证当前页码被修正为1
+            with patch('web.render_template') as mock_render:
+                mock_render.return_value = ''
+                self.web_app.show_categories()
+                args, kwargs = mock_render.call_args
+                self.assertEqual(kwargs['current_page'], 1)
+
+    def test_current_json_index_boundary(self):
+        """测试当前JSON索引超出范围的情况"""
+        # 初始设置超出范围的索引
+        with self.web_app.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess['current_json_index'] = 5  # 超过文件列表长度
+            client.get('/')
+            with client.session_transaction() as sess:
+                self.assertEqual(sess['current_json_index'], 0)
+
+    def test_empty_replace_rules(self):
+        """测试替换规则为空时数据保持不变"""
+        data = {'key': 'original value'}
+        # 应用替换
+        result = self.web_app.apply_replace_rules(data)
+        self.assertEqual(result, data)
+        # 反转替换
+        reversed_data = self.web_app.reverse_replace_rules(data)
+        self.assertEqual(reversed_data, data)
+
+    def test_serve_image_special_characters(self):
+        """测试处理包含特殊字符的图片路径"""
+        test_path = 'test cat/测试图片#1.jpg'
+        encoded_category = quote('test cat')
+        encoded_filename = quote('测试图片#1.jpg')
+        
+        self.web_app.load_image_data = MagicMock(return_value=(
+            defaultdict(list),
+            {test_path: '/mock/path/测试图片#1.jpg'}
+        ))
+        with patch('web.send_from_directory') as mock_send:
+            mock_send.return_value = 'image data'
+            with self.web_app.app.test_client() as client:
+                response = client.get(f'/image/{encoded_category}/{encoded_filename}')
+                self.assertEqual(response.status_code, 200)
+                mock_send.assert_called_with('/mock/path', '测试图片#1.jpg')
+
+    def test_paginate_zero_and_negative_per_page(self):
+        """测试per_page为0或负数时的分页行为"""
+        items = list(range(10))
+        # per_page=0
+        result, total_pages = WebApp.paginate(items, 1, 0)
+        self.assertEqual(len(result), 0)
+        self.assertEqual(total_pages, 0)
+        # per_page=-5
+        result, total_pages = WebApp.paginate(items, 1, -5)
+        self.assertEqual(len(result), 0)
+        self.assertEqual(total_pages, 0)
+
+    def test_concurrent_like_requests(self):
+        """模拟并发点赞请求测试线程安全"""
+        json_path = 'test.json'
+        mock_base = os.path.abspath('mock_base')
+        self.web_app.cached_raw_data[json_path] = {
+            'img': {
+                mock_base: {
+                    'image.jpg': {'like': False}
+                }
+            }
+        }
+        
+        def concurrent_like_actions():
+            with self.web_app.app.test_client() as client:
+                for _ in range(10):
+                    client.post('/like_image', json={
+                        'path': os.path.join(mock_base, 'image.jpg'),
+                        'action': 'like'
+                    })
+
+        # 创建多个线程模拟并发请求
+        threads = []
+        for _ in range(5):
+            t = threading.Thread(target=concurrent_like_actions)
+            threads.append(t)
+            t.start()
+        
+        for t in threads:
+            t.join()
+
+        # 验证最终状态
+        self.assertTrue(
+            self.web_app.cached_raw_data[json_path]['img'][mock_base]['image.jpg']['like']
+        )
+
+    @patch('web.render_template')
+    def test_category_thumbnails_generation(self, mock_render):
+        """测试分类缩略图的生成逻辑"""
+        # 模拟包含多个图片的分类
+        test_items = [
+            {'filename': 'thumb1.jpg', 'face_scores': [0.9]},
+            {'filename': 'thumb2.jpg', 'face_scores': [0.8]}
+        ]
+        category_map = defaultdict(list, {'test_cat': test_items})
+        self.web_app.load_image_data = MagicMock(return_value=(category_map, {}))
+        
+        with self.web_app.app.test_client() as client:
+            client.get('/')
+            args, kwargs = mock_render.call_args
+            # 验证第一个图片作为缩略图
+            self.assertIn('thumb1.jpg', kwargs['categories'][0]['thumb_url'])
+
+    def test_like_image_malicious_path(self):
+        """测试尝试访问非法路径"""
+        malicious_path = '../../etc/passwd'
+        with self.web_app.app.test_client() as client:
+            response = client.post('/like_image', json={
+                'path': malicious_path,
+                'action': 'like'
+            })
+            self.assertEqual(response.status_code, 404)
+            response_data = json.loads(response.data)
+            self.assertEqual(len(response_data['not_found']), 1)
 
 if __name__ == '__main__':
     unittest.main()
