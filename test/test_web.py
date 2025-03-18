@@ -107,6 +107,13 @@ class TestPaginator(BaseTestCase):
         self.assertEqual(result, [1])
         self.assertEqual(total_pages, 1)
 
+    def test_paginate_with_massive_page_number(self):
+        """测试极大页码返回空列表"""
+        items = list(range(100))
+        result, total_pages = WebApp.paginate(items, 1000, 10)
+        self.assertEqual(len(result), 0)
+        self.assertEqual(total_pages, 10)
+
 
 class TestWebAppReplaceRules(BaseTestCase):
     def test_apply_replace_rules(self):
@@ -695,19 +702,23 @@ class TestWebAppImageServing(BaseTestCase):
                 self.assertEqual(response.status_code, 200)
                 mock_send.assert_called_with('/mock/path', '测试图片#1.jpg')
 
-    def test_serve_image_with_url_encoded_special_chars(self):
-        """测试URL编码的特殊字符路径访问"""
-        encoded_category = quote('特殊/类别')
+    def test_serve_image_with_url_encoded_special_chars1(self):
+        """测试处理URL编码的特殊字符路径"""
+        test_path = '测试目录/图片#1@.jpg'
+        encoded_category = quote('测试目录')
         encoded_filename = quote('图片#1@.jpg')
+        
         self.web_app.load_image_data = MagicMock(return_value=(
             defaultdict(list),
-            {'特殊/类别/图片#1@.jpg': '/data/img/图片#1@.jpg'}
+            {test_path: '/data/images/图片#1@.jpg'}
         ))
+        
         with patch('web.send_from_directory') as mock_send:
-            mock_send.return_value = 'image'
+            mock_send.return_value = 'image data'
             response = self.web_app.app.test_client().get(
-                f'/image/{encoded_category}/{encoded_filename}')
-            mock_send.assert_called_with('/data/img', '图片#1@.jpg')
+                f'/image/{encoded_category}/{encoded_filename}'
+            )
+            mock_send.assert_called_with('/data/images', '图片#1@.jpg')
             self.assertEqual(response.status_code, 200)
 
     @patch('web.open', side_effect=PermissionError("Permission denied"))
@@ -927,6 +938,59 @@ class TestWebAppJsonHandling(BaseTestCase):
         reversed_data = self.web_app.reverse_replace_rules(applied)
         self.assertEqual(reversed_data['key'], 'a')
 
+    def test_load_image_data_with_nested_directories(self):
+        """测试加载包含多层嵌套目录的JSON数据"""
+        json_data = {
+            'img': {
+                'base_dir': {
+                    'subdir1': {
+                        'subsubdir': {
+                            'image1.jpg': {'face_scores': [0.9]},
+                            'image2.jpg': {'face_scores': [0.8]}
+                        }
+                    },
+                    'subdir2': {
+                        'image3.jpg': {'face_scores': [0.7]}
+                    }
+                }
+            }
+        }
+        self.web_app.cached_raw_data['test.json'] = json_data
+        
+        # 添加请求上下文
+        with self.web_app.app.test_request_context():
+            category_map, file_map = self.web_app.load_image_data()
+        
+        self.assertIn('subdir1/subsubdir', category_map)
+        self.assertEqual(len(category_map['subdir1/subsubdir']), 2)
+        self.assertIn('subdir2', category_map)
+        self.assertEqual(len(category_map['subdir2']), 1)
+        self.assertIn('subdir1/subsubdir/image1.jpg', file_map)
+
+    def test_json_switch_updates_loaded_data(self):
+        """测试切换JSON文件后加载的数据正确性"""
+        self.web_app.json_files = ['first.json', 'second.json']
+        self.web_app.cached_raw_data = {
+            'first.json': {'img': {'base1': {'img1.jpg': {'face_scores': [0.9]}}}},
+            'second.json': {'img': {'base2': {'img2.jpg': {'face_scores': [0.8]}}}}
+        }
+        
+        with self.web_app.app.test_client() as client:
+            client.get('/select_json/1')
+            current_json = self.web_app.get_current_json_path()
+            self.assertEqual(current_json, 'second.json')
+            
+            category_map, _ = self.web_app.load_image_data()
+            self.assertIn('base2', category_map.keys())
+
+    @patch('web.open', side_effect=IOError("Disk error"))
+    def test_load_image_data_io_error_handling(self, mock_open):
+        """测试处理JSON文件读取时的IO错误"""
+        self.web_app.get_current_json_path = lambda: 'error.json'
+        with patch.object(self.web_app.app.logger, 'error') as mock_logger:
+            category_map, _ = self.web_app.load_image_data()
+            mock_logger.assert_called_with("Load data failed for error.json: Disk error")
+        self.assertEqual(len(category_map), 0)
 
 class TestWebAppShutdown(BaseTestCase):
     def test_shutdown_route_normal(self):
