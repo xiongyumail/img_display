@@ -48,8 +48,7 @@ class WebApp:
     def setup_routes(self):
         self.app.route('/')(self.show_categories)
         self.app.route('/all')(self.show_all_images)
-        self.app.route('/category/<path:category>/page/<int:page>')(self.category_view)
-        self.app.route('/category/<path:category>', defaults={'page': 1})(self.category_view)
+        self.app.route('/category/<path:category>')(self.category_view)
         self.app.route('/like_image', methods=['POST'])(self.like_image)
         self.app.route('/shutdown', methods=['GET', 'POST'])(self.shutdown)
         self.app.route('/image/<category>/<path:filename>')(self.serve_image)
@@ -181,7 +180,8 @@ class WebApp:
         page = request.args.get('page', 1, type=int)
         return self.render_category_view(page)
 
-    def category_view(self, category: str, page: int) -> str:
+    def category_view(self, category: str) -> str:
+        page = request.args.get('page', 1, type=int)
         try:
             current_category = unquote(category)
         except UnicodeDecodeError:

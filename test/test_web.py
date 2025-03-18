@@ -565,5 +565,118 @@ class TestWebApp(unittest.TestCase):
             mock_queue.join.assert_called_once()  # 验证队列完成
             mock_exit.assert_called_with(0)
 
+    def test_show_all_images_pagination(self):
+        """测试/all路由的分页是否正确"""
+        # 模拟有75个图片数据，补充所有模板需要的字段
+        test_items = [{
+            'filename': f'img{i}.jpg',
+            'face_scores': [],
+            'landmark_scores': [],
+            'like': False,
+            'category': 'cat1',
+            'path': f'/mock/path/img{i}.jpg'
+        } for i in range(75)]
+        
+        # 使用Mock捕获渲染参数进行验证
+        with patch('web.render_template') as mock_render:
+            mock_render.return_value = ''
+            self.web_app.load_image_data = MagicMock(return_value=(
+                defaultdict(list, {'cat1': test_items}),
+                {}
+            ))
+            with self.web_app.app.test_client() as client:
+                # 测试第一页
+                client.get('/all?page=1')
+                
+                # 验证分页参数
+                args, kwargs = mock_render.call_args
+                self.assertEqual(len(kwargs['images']), 20)     # 每页数量
+                self.assertEqual(kwargs['current_page'], 1)       # 当前页码
+                self.assertEqual(kwargs['total_pages'], 4)       # 总页数 75/20=3.75→4
+                self.assertEqual(kwargs['total_images'], 75)     # 总图片数
+
+    def test_apply_replace_rules_nested_list(self):
+        """测试替换规则应用于嵌套列表结构"""
+        self.web_app.replace_rules = [('old', 'new')]
+        data = {
+            'items': [
+                {'name': 'old item'},
+                {'subitems': [{'value': 'old value'}]}
+            ]
+        }
+        result = self.web_app.apply_replace_rules(data)
+        self.assertEqual(result['items'][0]['name'], 'new item')
+        self.assertEqual(result['items'][1]['subitems'][0]['value'], 'new value')
+
+    def test_reverse_replace_rules_complex_structure(self):
+        """测试反转替换规则处理复杂结构"""
+        self.web_app.replace_rules = [('a', 'b'), ('b', 'c')]
+        data = {
+            'key': 'c',
+            'nested': {
+                'list': ['c', 'd']
+            }
+        }
+        expected = {
+            'key': 'a',
+            'nested': {
+                'list': ['a', 'd']
+            }
+        }
+        result = self.web_app.reverse_replace_rules(data)
+        self.assertEqual(result, expected)
+
+    def test_category_view_favorites_without_seed(self):
+        """测试收藏夹视图是否自动生成随机种子并重定向"""
+        self.web_app.load_image_data = MagicMock(return_value=(
+            defaultdict(list, {
+                'cat1': [{'filename': 'img1.jpg', 'like': True}]
+            }),
+            {}
+        ))
+        with self.web_app.app.test_client() as client:
+            response = client.get('/category/_favorites')
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue('seed=' in response.location)
+
+    def test_category_view_unfavorites_pagination(self):
+        """测试非收藏夹视图的分页和总数统计"""
+        # 构建测试数据（所有项like=False）
+        test_items = [{
+            'filename': f'img{i}.jpg',
+            'face_scores': [0.9],
+            'landmark_scores': [[1,2]],
+            'like': False,  # 确保所有项未收藏
+            'category': 'cat1',
+            'path': f'/base/cat1/img{i}.jpg'
+        } for i in range(35)]
+
+        # 配置Mock数据
+        with patch('web.render_template') as mock_render:
+            mock_render.return_value = 'rendered content'
+            
+            # 模拟数据加载返回多个分类的数据
+            self.web_app.load_image_data = MagicMock(return_value=(
+                defaultdict(list, {
+                    'cat1': test_items,
+                    'cat2': [{'filename': 'other.jpg', 'like': True}]  # 其他分类不影响测试
+                }),
+                {f'cat1/img{i}.jpg': f'/base/cat1/img{i}.jpg' for i in range(35)}
+            ))
+
+            with self.web_app.app.test_client() as client:
+                # 使用查询参数传递页码（关键修正点）
+                response = client.get('/category/_unfavorites?page=2&seed=123')
+                
+                # 验证HTTP响应状态码
+                self.assertEqual(response.status_code, 200)
+                
+                # 验证模板渲染参数
+                args, kwargs = mock_render.call_args
+                self.assertEqual(len(kwargs['images']), 15)  # 35-20=15
+                self.assertEqual(kwargs['current_page'], 2)
+                self.assertEqual(kwargs['total_pages'], 2)  # ceil(35/20)=2
+                self.assertEqual(kwargs['total_images'], 35)
+
 if __name__ == '__main__':
     unittest.main()
