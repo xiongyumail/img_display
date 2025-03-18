@@ -2,10 +2,11 @@ import unittest
 import sys
 import os
 from unittest.mock import patch, MagicMock, PropertyMock
-from flask import json
+from flask import json as flask_json, Response
 import argparse
 from collections import defaultdict
 from urllib.parse import quote
+import json
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from web import WebApp
@@ -59,6 +60,18 @@ class TestPaginator(unittest.TestCase):
         result, total_pages = WebApp.paginate(items, 3, per_page)
         self.assertEqual(result, [])
         self.assertEqual(total_pages, 2)
+
+    def test_paginate_zero_per_page(self):
+        items = list(range(10))
+        result, total_pages = WebApp.paginate(items, 1, 0)
+        self.assertEqual(len(result), 0)
+        self.assertEqual(total_pages, 0)  # 修改为期望0页
+
+    def test_paginate_negative_per_page(self):
+        items = list(range(10))
+        result, total_pages = WebApp.paginate(items, 1, -5)
+        self.assertEqual(len(result), 0)
+        self.assertEqual(total_pages, 0)  # 修改为期望0页
 
 class TestWebApp(unittest.TestCase):
     def setUp(self):
@@ -382,6 +395,175 @@ class TestWebApp(unittest.TestCase):
         self.web_app.load_image_data = MagicMock(return_value=(defaultdict(list), {}))
         thumbnail = self.web_app.get_category_thumbnail('empty')
         self.assertEqual(thumbnail, {})
+
+    def test_like_image_single_path(self):
+        json_path = 'test.json'
+        mock_base = os.path.abspath('mock_base')
+        self.web_app.cached_raw_data[json_path] = {
+            'img': {
+                mock_base: {
+                    'image.jpg': {'like': False}
+                }
+            }
+        }
+        with self.web_app.app.test_client() as client:
+            response = client.post(
+                '/like_image',
+                json={
+                    'path': os.path.join(mock_base, 'image.jpg'),
+                    'action': 'like'
+                }
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            self.web_app.cached_raw_data[json_path]['img'][mock_base]['image.jpg']['like']
+        )
+
+    @patch('web.render_template')
+    def test_seed_generates_random_order(self, mock_render):
+        mock_render.return_value = ''
+        test_items = [{'filename': f'img{i}.jpg'} for i in range(50)]
+        category_map = defaultdict(list, {'test_cat': test_items})
+        self.web_app.load_image_data = MagicMock(return_value=(category_map, {}))
+        
+        # 第一次请求生成seed
+        with self.web_app.app.test_client() as client:
+            response = client.get('/category/_favorites')
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue('seed=' in response.location)
+        
+        # 使用相同seed两次请求结果应一致
+        seed = '12345'
+        with self.web_app.app.test_request_context(f'/category/_favorites?seed={seed}'):
+            self.web_app.render_category_view(page=1, category='_favorites', seed=seed)
+            first_call_images = mock_render.call_args[1]['images']
+        
+        mock_render.reset_mock()
+        
+        with self.web_app.app.test_request_context(f'/category/_favorites?seed={seed}'):
+            self.web_app.render_category_view(page=1, category='_favorites', seed=seed)
+            second_call_images = mock_render.call_args[1]['images']
+        
+        self.assertEqual(
+            [img['filename'] for img in first_call_images],
+            [img['filename'] for img in second_call_images]
+        )
+
+    def test_serve_image_with_spaces(self):
+        self.web_app.load_image_data = MagicMock(return_value=(
+            defaultdict(list),
+            {'test cat/image 1.jpg': '/mock/path/image 1.jpg'}
+        ))
+        encoded_category = quote('test cat')
+        encoded_filename = quote('image 1.jpg')
+        with patch('web.send_from_directory') as mock_send:
+            mock_send.return_value = 'image data'
+            with self.web_app.app.test_client() as client:
+                response = client.get(f'/image/{encoded_category}/{encoded_filename}')
+                self.assertEqual(response.status_code, 200)
+                mock_send.assert_called_with('/mock/path', 'image 1.jpg')
+
+    def test_switch_json_and_data_loading(self):
+        self.web_app.json_files = ['first.json', 'second.json']
+        self.web_app.cached_raw_data = {
+            'first.json': {'img': {'base1': {'img1.jpg': {'face_scores': [1]}}}},
+            'second.json': {'img': {'base2': {'img2.jpg': {'face_scores': [1]}}}}
+        }
+        with self.web_app.app.test_client() as client:
+            client.get('/select_json/1')
+            current_json = self.web_app.get_current_json_path()
+            self.assertEqual(current_json, 'second.json')
+            category_map, _ = self.web_app.load_image_data()
+            # 验证是否加载了第二个JSON的数据
+            self.assertTrue(any('base2' in cat for cat in category_map.keys()))
+
+    @patch('web.open')
+    @patch('json.load', side_effect=json.JSONDecodeError("Syntax error", "doc", 0))
+    def test_load_image_data_json_decode_error(self, mock_json_load, mock_open):
+        self.web_app.get_current_json_path = lambda: 'invalid.json'
+        with patch.object(self.web_app.app.logger, 'error') as mock_error:
+            category_map, file_map = self.web_app.load_image_data()
+            # 验证错误消息前缀匹配（忽略具体位置信息）
+            mock_error.assert_called_once()
+            args, _ = mock_error.call_args
+            self.assertTrue(
+                args[0].startswith("Load data failed for invalid.json: Syntax error"),
+                f"Expected error message to start with 'Syntax error', but got: {args[0]}"
+            )
+        self.assertEqual(len(category_map), 0)
+        self.assertEqual(len(file_map), 0)
+
+    def test_serve_image_mime_type(self):
+        self.web_app.load_image_data = MagicMock(return_value=(
+            defaultdict(list),
+            {'test_cat/test.jpg': '/mock/path/test.jpg'}
+        ))
+        with patch('web.send_from_directory') as mock_send:
+            # 创建真实的 Response 对象并设置 Content-Type
+            mock_response = Response(
+                response=b'mock image data',
+                status=200,
+                mimetype='image/jpeg'  # 直接设置 MIME 类型
+            )
+            mock_send.return_value = mock_response
+            
+            with self.web_app.app.test_client() as client:
+                response = client.get('/image/test_cat/test.jpg')
+                # 验证响应头
+                self.assertEqual(response.mimetype, 'image/jpeg')
+                # 验证调用参数
+                mock_send.assert_called_with(
+                    os.path.dirname('/mock/path/test.jpg'),
+                    os.path.basename('/mock/path/test.jpg')
+                )
+
+    @patch('web.render_template')
+    def test_show_categories_renders_template(self, mock_render):
+        mock_render.return_value = ''
+        # 确保分类包含至少一个图片
+        test_categories = ['cat1', 'cat2']
+        category_map = defaultdict(list, {
+            'cat1': [{'filename': 'thumb1.jpg'}],
+            'cat2': [{'filename': 'thumb2.jpg'}]
+        })
+        self.web_app.load_image_data = MagicMock(return_value=(category_map, {}))
+        with self.web_app.app.test_client() as client:
+            client.get('/')
+            args, kwargs = mock_render.call_args
+            # 验证每个分类都有缩略图
+            for cat in kwargs['categories']:
+                self.assertNotEqual(cat['thumb_url'], '')
+
+    def test_shutdown_route_normal(self):
+        """测试正常关闭流程（存在werkzeug的shutdown函数）"""
+        # 创建模拟的队列对象
+        mock_queue = MagicMock()
+        self.web_app.save_queue = mock_queue
+        
+        with self.web_app.app.test_client() as client:
+            # 注入shutdown_func到请求环境中
+            response = client.get(
+                '/shutdown',
+                environ_overrides={'werkzeug.server.shutdown': lambda: None}
+            )
+            
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('Server shutting down', response.get_data(as_text=True))
+            self.assertFalse(self.web_app.save_thread_running)
+            mock_queue.join.assert_called_once()  # 验证队列完成
+
+    @patch('web.os._exit')
+    def test_shutdown_route_forced(self, mock_exit):
+        """测试强制关闭流程（无werkzeug的shutdown函数）"""
+        mock_queue = MagicMock()
+        self.web_app.save_queue = mock_queue
+        
+        with self.web_app.app.test_client() as client:
+            response = client.get('/shutdown')
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('Server forced to shutdown', response.get_data(as_text=True))
+            mock_queue.join.assert_called_once()  # 验证队列完成
+            mock_exit.assert_called_with(0)
 
 if __name__ == '__main__':
     unittest.main()

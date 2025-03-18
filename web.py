@@ -323,8 +323,9 @@ class WebApp:
     def paginate(items: List[Any], page: int, per_page: int) -> Tuple[List[Any], int]:
         if not items:
             return [], 1
-        # 新增页码校验逻辑
-        page = max(page, 1)  # 确保页码不小于1
+        if per_page <= 0:
+            return [], 0  # 返回空列表和0页
+        page = max(page, 1)
         start = (page - 1) * per_page
         end = start + per_page
         result = items[start:end]
@@ -333,4 +334,5 @@ class WebApp:
 
     def get_category_thumbnail(self, category: str) -> Dict:
         category_map, _ = self.load_image_data()
-        return category_map.get(category, [{}])[0]
+        images = category_map.get(category, [])
+        return images[0] if images else {}  # 检查空列表
