@@ -108,8 +108,11 @@ class WebApp:
             return category_map, file_map
 
     def select_json(self, json_index):
-        if 0 <= json_index < len(self.json_files):
-            session['current_json_index'] = json_index
+        # 有效索引范围检查
+        if not (0 <= json_index < len(self.json_files)):
+            json_index = 0
+        
+        session['current_json_index'] = json_index
         return redirect(request.referrer or url_for('show_categories'))
 
     def serve_image(self, category: str, filename: str):
@@ -182,6 +185,12 @@ class WebApp:
             current_category = unquote(category)
         except UnicodeDecodeError:
             abort(404, description="Invalid category name")
+
+        # 新增分类有效性检查
+        category_map, _ = self.load_image_data()
+        if (current_category not in ('_favorites', '_unfavorites') 
+            and current_category not in category_map):
+            abort(404, description="Category not found")
 
         seed = request.args.get('seed', default=None, type=str)
         if current_category in ('_favorites', '_unfavorites') and not seed:
