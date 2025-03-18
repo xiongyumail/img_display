@@ -42,6 +42,24 @@ class TestPaginator(unittest.TestCase):
         self.assertEqual(total_pages, 5)
         self.assertEqual(len(result), 20)
 
+    def test_paginate_invalid_page(self):
+        items = list(range(10))  # [0-9]
+        per_page = 5
+        
+        # 测试page=0时修正为1
+        result, total_pages = WebApp.paginate(items, 0, per_page)
+        self.assertEqual(result, [0,1,2,3,4])
+        self.assertEqual(total_pages, 2)
+        
+        # 测试负数页码修正为1
+        result, total_pages = WebApp.paginate(items, -3, per_page)
+        self.assertEqual(result, [0,1,2,3,4])
+        
+        # 测试超过总页数的页数返回空列表
+        result, total_pages = WebApp.paginate(items, 3, per_page)
+        self.assertEqual(result, [])
+        self.assertEqual(total_pages, 2)
+
 class TestWebApp(unittest.TestCase):
     def setUp(self):
         args = argparse.Namespace(
@@ -312,6 +330,58 @@ class TestWebApp(unittest.TestCase):
         with self.web_app.app.test_client() as client:
             response = client.get('/category/invalid_category')
             self.assertEqual(response.status_code, 404)
+
+    @patch('web.open', side_effect=FileNotFoundError("File not found"))
+    def test_load_image_data_file_not_found(self, mock_open):
+        self.web_app.get_current_json_path = lambda: 'missing.json'
+        
+        # 使用patch.object模拟logger.error方法
+        with patch.object(self.web_app.app.logger, 'error') as mock_error:
+            category_map, file_map = self.web_app.load_image_data()
+            # 验证日志调用
+            mock_error.assert_called_with("Load data failed for missing.json: File not found")
+        
+        self.assertEqual(len(category_map), 0)
+        self.assertEqual(len(file_map), 0)
+
+    def test_like_image_invalid_json(self):
+        with self.web_app.app.test_client() as client:
+            # 发送无效JSON数据
+            response = client.post('/like_image', 
+                                data='{invalid json', 
+                                content_type='application/json')
+            self.assertEqual(response.status_code, 400)  # 现在应返回400而非500
+            response_data = json.loads(response.data)
+            self.assertFalse(response_data['success'])
+            self.assertIn('Invalid JSON', response_data['message'])
+
+    def test_serve_image_encoded_path(self):
+        # 测试URL编码的路径参数
+        self.web_app.load_image_data = MagicMock(return_value=(
+            defaultdict(list),
+            {'测试分类/图片 1.jpg': '/mock/path/图片 1.jpg'}
+        ))
+        encoded_category = quote('测试分类')
+        encoded_filename = quote('图片 1.jpg')
+        with patch('web.send_from_directory') as mock_send:
+            mock_send.return_value = 'image data'
+            with self.web_app.app.test_client() as client:
+                response = client.get(f'/image/{encoded_category}/{encoded_filename}')
+                self.assertEqual(response.status_code, 200)
+                mock_send.assert_called_with('/mock/path', '图片 1.jpg')
+
+    def test_multiple_replace_rules_order(self):
+        self.web_app.replace_rules = [('a', 'b'), ('b', 'c')]
+        data = {'text': 'a'}
+        replaced = self.web_app.apply_replace_rules(data)
+        self.assertEqual(replaced['text'], 'c')
+        reversed_data = self.web_app.reverse_replace_rules({'text': 'c'})
+        self.assertEqual(reversed_data['text'], 'a')
+
+    def test_category_thumbnail_with_empty_category(self):
+        self.web_app.load_image_data = MagicMock(return_value=(defaultdict(list), {}))
+        thumbnail = self.web_app.get_category_thumbnail('empty')
+        self.assertEqual(thumbnail, {})
 
 if __name__ == '__main__':
     unittest.main()

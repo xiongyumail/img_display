@@ -11,6 +11,7 @@ from collections import defaultdict
 from datetime import datetime
 from config import get_config
 import random
+from werkzeug.exceptions import BadRequest
 
 class WebApp:
     def __init__(self, args):
@@ -281,6 +282,11 @@ class WebApp:
                 else:
                     return jsonify({'success': False, 'message': 'None of the images were found', 'not_found': not_found_paths}), 404
 
+        except BadRequest as e:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid JSON data'
+            }), 400
         except Exception as e:
             self.app.logger.error(f"Like operation error: {str(e)}")
             return jsonify({
@@ -316,7 +322,9 @@ class WebApp:
     @staticmethod
     def paginate(items: List[Any], page: int, per_page: int) -> Tuple[List[Any], int]:
         if not items:
-            return [], 1  # 处理空列表的情况
+            return [], 1
+        # 新增页码校验逻辑
+        page = max(page, 1)  # 确保页码不小于1
         start = (page - 1) * per_page
         end = start + per_page
         result = items[start:end]
