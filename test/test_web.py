@@ -13,7 +13,23 @@ from queue import Queue, Empty
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from web import WebApp
 
-class TestPaginator(unittest.TestCase):
+class BaseTestCase(unittest.TestCase):
+    def setUp(self):
+        self.args = argparse.Namespace(
+            per_page=20,
+            host='0.0.0.0',
+            port=5000,
+            input_json=['test.json'],
+            replace=[('old', 'new')]
+        )
+        self.web_app = WebApp(self.args)
+        self.web_app.app.testing = True
+        self.web_app.cached_raw_data['test.json'] = {
+            'img': {},
+            'date_updated': '2025-03-18T13:51:59+00:00'
+        }
+
+class TestPaginator(BaseTestCase):
     def test_paginate(self):
         items = list(range(100))
         page = 1
@@ -92,23 +108,7 @@ class TestPaginator(unittest.TestCase):
         self.assertEqual(total_pages, 1)
 
 
-class TestWebAppReplaceRules(unittest.TestCase):
-    def setUp(self):
-        args = argparse.Namespace(
-            per_page=20,
-            host='0.0.0.0',
-            port=5000,
-            input_json=['test.json'],
-            replace=[('old', 'new')]
-        )
-        self.web_app = WebApp(args)
-        self.web_app.app.testing = True
-        # 预先填充测试用的JSON数据，避免文件读取错误
-        self.web_app.cached_raw_data['test.json'] = {
-            'img': {},
-            'date_updated': '2025-03-18T13:51:59+00:00'
-        }
-
+class TestWebAppReplaceRules(BaseTestCase):
     def test_apply_replace_rules(self):
         data = {'key': 'old value'}
         result = self.web_app.apply_replace_rules(data)
@@ -231,23 +231,7 @@ class TestWebAppReplaceRules(unittest.TestCase):
         self.assertEqual(reversed_data, expected)
 
 
-class TestWebAppImageLiking(unittest.TestCase):
-    def setUp(self):
-        args = argparse.Namespace(
-            per_page=20,
-            host='0.0.0.0',
-            port=5000,
-            input_json=['test.json'],
-            replace=[('old', 'new')]
-        )
-        self.web_app = WebApp(args)
-        self.web_app.app.testing = True
-        # 预先填充测试用的JSON数据，避免文件读取错误
-        self.web_app.cached_raw_data['test.json'] = {
-            'img': {},
-            'date_updated': '2025-03-18T13:51:59+00:00'
-        }
-
+class TestWebAppImageLiking(BaseTestCase):
     @patch('os.path.commonpath')
     @patch('os.path.abspath')
     def test_like_image_multiple_paths(self, mock_abspath, mock_commonpath):
@@ -418,23 +402,7 @@ class TestWebAppImageLiking(unittest.TestCase):
         )
 
 
-class TestWebAppCategoryViews(unittest.TestCase):
-    def setUp(self):
-        args = argparse.Namespace(
-            per_page=20,
-            host='0.0.0.0',
-            port=5000,
-            input_json=['test.json'],
-            replace=[('old', 'new')]
-        )
-        self.web_app = WebApp(args)
-        self.web_app.app.testing = True
-        # 预先填充测试用的JSON数据，避免文件读取错误
-        self.web_app.cached_raw_data['test.json'] = {
-            'img': {},
-            'date_updated': '2025-03-18T13:51:59+00:00'
-        }
-
+class TestWebAppCategoryViews(BaseTestCase):
     @patch('web.render_template')
     def test_render_category_view_total_images(self, mock_render):
         mock_render.return_value = ''
@@ -634,23 +602,7 @@ class TestWebAppCategoryViews(unittest.TestCase):
         thumbnail = self.web_app.get_category_thumbnail('empty')
         self.assertEqual(thumbnail, {})
 
-class TestWebAppImageServing(unittest.TestCase):
-    def setUp(self):
-        args = argparse.Namespace(
-            per_page=20,
-            host='0.0.0.0',
-            port=5000,
-            input_json=['test.json'],
-            replace=[('old', 'new')]
-        )
-        self.web_app = WebApp(args)
-        self.web_app.app.testing = True
-        # 预先填充测试用的JSON数据，避免文件读取错误
-        self.web_app.cached_raw_data['test.json'] = {
-            'img': {},
-            'date_updated': '2025-03-18T13:51:59+00:00'
-        }
-
+class TestWebAppImageServing(BaseTestCase):
     def test_serve_image_not_found(self):
         self.web_app.load_image_data = MagicMock(return_value=(
             defaultdict(list),
@@ -783,23 +735,7 @@ class TestWebAppImageServing(unittest.TestCase):
                 mock_send.assert_called_with('/mock/path', '图片#1.jpg')
 
 
-class TestWebAppJsonHandling(unittest.TestCase):
-    def setUp(self):
-        args = argparse.Namespace(
-            per_page=20,
-            host='0.0.0.0',
-            port=5000,
-            input_json=['test.json'],
-            replace=[('old', 'new')]
-        )
-        self.web_app = WebApp(args)
-        self.web_app.app.testing = True
-        # 预先填充测试用的JSON数据，避免文件读取错误
-        self.web_app.cached_raw_data['test.json'] = {
-            'img': {},
-            'date_updated': '2025-03-18T13:51:59+00:00'
-        }
-
+class TestWebAppJsonHandling(BaseTestCase):
     def test_select_json_valid_index(self):
         with self.web_app.app.test_client() as client:
             client.get('/select_json/0')
@@ -992,23 +928,7 @@ class TestWebAppJsonHandling(unittest.TestCase):
         self.assertEqual(reversed_data['key'], 'a')
 
 
-class TestWebAppShutdown(unittest.TestCase):
-    def setUp(self):
-        args = argparse.Namespace(
-            per_page=20,
-            host='0.0.0.0',
-            port=5000,
-            input_json=['test.json'],
-            replace=[('old', 'new')]
-        )
-        self.web_app = WebApp(args)
-        self.web_app.app.testing = True
-        # 预先填充测试用的JSON数据，避免文件读取错误
-        self.web_app.cached_raw_data['test.json'] = {
-            'img': {},
-            'date_updated': '2025-03-18T13:51:59+00:00'
-        }
-
+class TestWebAppShutdown(BaseTestCase):
     def test_shutdown_route_normal(self):
         """测试正常关闭流程（存在werkzeug的shutdown函数）"""
         # 创建模拟的队列对象
@@ -1063,23 +983,7 @@ class TestWebAppShutdown(unittest.TestCase):
             self.assertIn('Server shutting down', response.get_data(as_text=True))
 
 
-class TestWebAppPagination(unittest.TestCase):
-    def setUp(self):
-        args = argparse.Namespace(
-            per_page=20,
-            host='0.0.0.0',
-            port=5000,
-            input_json=['test.json'],
-            replace=[('old', 'new')]
-        )
-        self.web_app = WebApp(args)
-        self.web_app.app.testing = True
-        # 预先填充测试用的JSON数据，避免文件读取错误
-        self.web_app.cached_raw_data['test.json'] = {
-            'img': {},
-            'date_updated': '2025-03-18T13:51:59+00:00'
-        }
-
+class TestWebAppPagination(BaseTestCase):
     def test_show_all_images_pagination(self):
         """测试/all路由的分页是否正确"""
         # 模拟有75个图片数据，补充所有模板需要的字段
@@ -1189,23 +1093,7 @@ class TestWebAppPagination(unittest.TestCase):
                 self.assertEqual(sess.get('page', 1), 1)
 
 
-class TestWebAppConcurrency(unittest.TestCase):
-    def setUp(self):
-        args = argparse.Namespace(
-            per_page=20,
-            host='0.0.0.0',
-            port=5000,
-            input_json=['test.json'],
-            replace=[('old', 'new')]
-        )
-        self.web_app = WebApp(args)
-        self.web_app.app.testing = True
-        # 预先填充测试用的JSON数据，避免文件读取错误
-        self.web_app.cached_raw_data['test.json'] = {
-            'img': {},
-            'date_updated': '2025-03-18T13:51:59+00:00'
-        }
-
+class TestWebAppConcurrency(BaseTestCase):
     def test_concurrent_like_requests(self):
         """模拟并发点赞请求测试线程安全"""
         json_path = 'test.json'
@@ -1242,23 +1130,7 @@ class TestWebAppConcurrency(unittest.TestCase):
         )
 
 
-class TestWebAppTemplateData(unittest.TestCase):
-    def setUp(self):
-        args = argparse.Namespace(
-            per_page=20,
-            host='0.0.0.0',
-            port=5000,
-            input_json=['test.json'],
-            replace=[('old', 'new')]
-        )
-        self.web_app = WebApp(args)
-        self.web_app.app.testing = True
-        # 预先填充测试用的JSON数据，避免文件读取错误
-        self.web_app.cached_raw_data['test.json'] = {
-            'img': {},
-            'date_updated': '2025-03-18T13:51:59+00:00'
-        }
-
+class TestWebAppTemplateData(BaseTestCase):
     @patch('web.render_template')
     def test_template_total_images_accuracy(self, mock_render):
         """验证模板接收的总图片数准确"""
