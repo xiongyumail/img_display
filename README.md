@@ -19,7 +19,6 @@
 12. **单元测试支持**：提供基础单元测试，验证核心功能的正确性。
 13. **批量操作支持**：**新增**一键点赞所有图片功能，支持批量处理多个图像路径。
 
-
 ## 安装与运行
 ### 安装依赖
 确保你已经安装了 Python 3.x 和 Flask。可以使用以下命令安装依赖：
@@ -73,25 +72,31 @@ python build.py  # 自动获取版本并打包
 
 ## CI/CD 集成
 项目已配置 GitHub Actions，**仅在 `main` 分支推送或创建发布**时触发：
-1. **测试阶段**：运行单元测试（`test/test.py`）。
+1. **测试阶段**：运行单元测试（`test/test_config.py`、`test/test_web.py`）。
 2. **构建阶段**：生成多平台（Ubuntu、Windows、macOS）可执行文件。
 3. **发布阶段**：将构建产物作为 GitHub Release 附件上传。
 
 ## 单元测试
 运行测试：
 ```bash
-python test/test.py
+python test/test_config.py
+python test/test_web.py
 ```
 **覆盖功能**：
-- 配置参数解析
-- 分页器逻辑
-- Web 应用字符串替换规则
+- 配置参数解析（`test/test_config.py`）
+- 分页器逻辑（`test/test_web.py`）
+- Web 应用字符串替换规则（`test/test_web.py`）
 - **新增测试**：
   - 批量点赞多个路径的逻辑验证（`test_like_image_multiple_paths`）
   - 未提供路径时的错误处理（`test_like_image_no_paths`）
   - 所有路径均未找到时的响应（`test_like_image_all_not_found`）
   - 总图片数传递到模板的正确性（`test_render_category_view_total_images`）
-
+  - 分类缩略图生成逻辑（`test_get_category_thumbnail`）
+  - 无效 JSON 数据的错误处理（`test_like_image_invalid_json`）
+  - 并发点赞请求的线程安全验证（`test_concurrent_like_requests`）
+  - 分页器处理零或负数的每页数量（`test_paginate_zero_and_negative_per_page`）
+  - 多层嵌套目录的 JSON 数据加载（`test_load_image_data_with_nested_directories`）
+  - 强制关闭服务器的流程（`test_shutdown_route_forced`）
 
 ## 更新说明
 1. **用户界面优化**：
@@ -105,3 +110,8 @@ python test/test.py
 3. **测试增强**：
    - 新增批量点赞相关的单元测试，覆盖正常和异常场景。
    - 增强对收藏夹分类和未收藏分类的测试。
+   - 新增对分页器、JSON 数据加载、服务器关闭等核心功能的测试。
+4. **代码优化**：
+   - 重构 `test.py` 为 `test_config.py` 和 `test_web.py`，提升测试模块的清晰度。
+   - 修复分页器在处理零或负数每页数量时的逻辑问题。
+   - 增强 `like_image` 接口对无效 JSON 数据的错误处理。
